@@ -30,3 +30,6 @@ models/
 # IDE
 .vscode/
 .idea/
+
+# VoiceStudio reference clone (never track contents)
+VoiceStudio-src/
