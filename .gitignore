@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+
+# Environment
+.env
+.env.local
+
+# Data
+*.db
+*.wav
+*.m4b
+*.mp3
+models/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
