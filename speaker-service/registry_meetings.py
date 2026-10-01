@@ -61,6 +61,22 @@ class MeetingOps:
             )
         return last_id(cursor)
 
+    def get_cluster(self, cluster_id: int) -> Cluster | None:
+        """One cluster by its globally unique id, or ``None``."""
+        row = self._conn.execute(
+            "SELECT id, meeting_id, label, state, created_at FROM clusters WHERE id = ?",
+            (cluster_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return Cluster(
+            id=int(row["id"]),
+            meeting_id=int(row["meeting_id"]),
+            label=row["label"],
+            state=ClusterState(row["state"]),
+            created_at=str(row["created_at"]),
+        )
+
     def clusters_for_meeting(self, meeting_id: int) -> list[Cluster]:
         rows = self._conn.execute(
             "SELECT id, meeting_id, label, state, created_at"

@@ -48,6 +48,54 @@ def update_speaker(
     return speaker_payload(speaker, count)
 
 
+def enroll_new_speaker(
+    registry: Registry,
+    deps: ServiceDeps,
+    *,
+    name: str,
+    organization: str | None,
+    notes: str | None,
+    cluster_id: int,
+) -> dict[str, Any]:
+    """Create a NEW speaker from a cluster, resolving its meeting by cluster id.
+
+    Delegates to the atomic ``enrollment.enroll_speaker`` so the voiceprint guard
+    runs before any write: a refused enrollment (too little voiced audio, missing
+    audio) leaves no orphan speaker row.
+    """
+    cleaned = (name or "").strip()
+    if not cleaned:
+        raise HTTPException(400, "speaker name must not be empty")
+    meeting_id = resolve_cluster_meeting(registry, cluster_id)
+    try:
+        result = enrollment.enroll_speaker(
+            registry,
+            deps.embedder,
+            deps.audio_loader,
+            name=cleaned,
+            meeting_id=meeting_id,
+            cluster_id=cluster_id,
+            organization=organization,
+            notes=notes,
+        )
+    except RegistryError as exc:
+        raise _translate(exc) from exc
+    return {
+        "speaker_id": result.speaker_id,
+        "voiceprint_id": result.voiceprint_id,
+        "cluster_id": result.cluster_id,
+        "name": result.name,
+    }
+
+
+def resolve_cluster_meeting(registry: Registry, cluster_id: int) -> int:
+    """The meeting a globally-unique cluster belongs to (404 when absent)."""
+    cluster = registry.get_cluster(cluster_id)
+    if cluster is None:
+        raise HTTPException(404, f"cluster {cluster_id} does not exist")
+    return cluster.meeting_id
+
+
 def attach_voiceprint(
     registry: Registry,
     deps: ServiceDeps,

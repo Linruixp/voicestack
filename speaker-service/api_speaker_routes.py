@@ -5,8 +5,15 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api_auth import require_mutation_auth, require_read_auth
-from api_operations import attach_voiceprint, merge_speakers, update_speaker
+from api_operations import (
+    attach_voiceprint,
+    enroll_new_speaker,
+    merge_speakers,
+    resolve_cluster_meeting,
+    update_speaker,
+)
 from api_schemas import (
+    EnrollRequest,
     MergeRequest,
     SpeakerCreate,
     SpeakerPatch,
@@ -43,6 +50,20 @@ def create_speaker(request: Request, body: SpeakerCreate) -> dict[str, object]:
         return speaker_payload(speaker, 0)
 
 
+@router.post("/enroll", status_code=201, dependencies=[Depends(require_mutation_auth)])
+def enroll_speaker(request: Request, body: EnrollRequest) -> dict[str, object]:
+    """Create a NEW speaker from a cluster (the meeting is resolved by cluster)."""
+    with request.app.state.registry_factory() as registry:
+        return enroll_new_speaker(
+            registry,
+            request.app.state.deps,
+            name=body.name,
+            organization=body.organization,
+            notes=body.notes,
+            cluster_id=body.cluster_id,
+        )
+
+
 @router.patch("/{speaker_id}", dependencies=[Depends(require_mutation_auth)])
 def patch_speaker(
     request: Request, speaker_id: int, body: SpeakerPatch
@@ -68,11 +89,14 @@ def attach_cluster_voiceprint(
     request: Request, speaker_id: int, body: VoiceprintAttach
 ) -> dict[str, object]:
     with request.app.state.registry_factory() as registry:
+        meeting_id = body.meeting_id
+        if meeting_id is None:
+            meeting_id = resolve_cluster_meeting(registry, body.cluster_id)
         return attach_voiceprint(
             registry,
             request.app.state.deps,
             speaker_id,
-            body.meeting_id,
+            meeting_id,
             body.cluster_id,
         )
 

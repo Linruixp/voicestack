@@ -24,10 +24,29 @@ class SpeakerPatch(_Strict):
 
 
 class VoiceprintAttach(_Strict):
-    """Attach the cluster's canonically embedded voiceprint to a speaker."""
+    """Attach the cluster's canonically embedded voiceprint to a speaker.
 
-    meeting_id: int
+    ``cluster_id`` is globally unique, so ``meeting_id`` is optional: when it is
+    omitted the route resolves the meeting from the cluster. Supplying it is a
+    checked assertion that the cluster belongs to that meeting.
+    """
+
     cluster_id: int
+    meeting_id: int | None = None
+
+
+class EnrollRequest(_Strict):
+    """Create a NEW speaker from a diarized cluster (atomic enrollment).
+
+    Delegates to ``enrollment.enroll_speaker``: the cluster's voiceprint guard
+    runs before the speaker row is written, so a refused enrollment leaves no
+    orphan speaker or voiceprint.
+    """
+
+    name: str
+    cluster_id: int
+    organization: str | None = None
+    notes: str | None = None
 
 
 class MergeRequest(_Strict):
