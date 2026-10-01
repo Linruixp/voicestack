@@ -52,6 +52,15 @@ class Settings(BaseSettings):
     # MPS was ~5x faster (74 s clip: 10.5 s vs 53.6 s). There is no silent
     # fallback - if MPS is unavailable, diarization raises instead of switching.
     diarize_device: str = "mps"
+    # Cosine acceptance threshold for voiceprint matching. Calibrated
+    # 2026-10-01 on fixtures/meetings (enroll rec1, probe rec2, plus the unseen
+    # ZH voice as an impostor): worst genuine 0.9763, best impostor 0.3067, so
+    # the maximum-margin midpoint is 0.641; at it precision 1.0, FAR 0.0,
+    # FRR 0.0 (2 genuine + 4 impostor trials). Reproduce with
+    # scripts/calibrate_match.py; see evidence task-20-match.json. Re-calibrate
+    # when more speakers are available. Override for experiments with
+    # VASTACK_MATCH_THRESHOLD.
+    match_threshold: float = 0.641
 
     @property
     def hf_home(self) -> str:
