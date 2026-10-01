@@ -208,6 +208,14 @@ class MeetingOps:
             created_at=str(row["created_at"]),
         )
 
+    def has_active_jobs(self) -> bool:
+        """True while any job is queued or running (the idle watchdog defers)."""
+        row = self._conn.execute(
+            "SELECT 1 FROM jobs WHERE state IN (?, ?) LIMIT 1",
+            (JobState.QUEUED.value, JobState.RUNNING.value),
+        ).fetchone()
+        return row is not None
+
     def _require_meeting(self, meeting_id: int) -> None:
         if self.get_meeting(meeting_id) is None:
             raise MeetingNotFoundError(meeting_id)
