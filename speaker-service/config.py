@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     idle_exit_s: int = 600
     # Optional env override (VASTACK_TOKEN); normally the token lives in Keychain.
     token: str | None = None
+    # Diarization device, EXPLICITLY pinned after a CPU-vs-MPS test on this host
+    # (2026-10-01): both devices returned identical turns on a 2-speaker clip;
+    # MPS was ~5x faster (74 s clip: 10.5 s vs 53.6 s). There is no silent
+    # fallback - if MPS is unavailable, diarization raises instead of switching.
+    diarize_device: str = "mps"
 
     @property
     def hf_home(self) -> str:
