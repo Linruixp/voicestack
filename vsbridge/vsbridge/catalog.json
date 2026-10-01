@@ -1,0 +1,296 @@
+{
+  "generated_by": "vsbridge",
+  "source": "live tools/list 127.0.0.1:3900/mcp/",
+  "server": {
+    "name": "VoiceStudio",
+    "version": "1.29.0"
+  },
+  "count": 7,
+  "tools": [
+    {
+      "name": "generate_speech",
+      "description": "Generate speech audio from text.\n\n        Args:\n            text: The text to synthesize into speech.\n            language: Target language (ISO code or 'Auto'). 646 languages supported.\n            profile_id: ID of a saved voice profile to clone. Omit to use this\n                agent's bound voice (Settings → MCP), else the global default.\n            instruct: Style instruction (e.g. 'whisper', 'excited', 'narrator').\n            speed: Speech speed multiplier (0.5–2.0, default 1.0).\n            steps: Diffusion steps (8=fast/draft, 16=balanced, 32=quality).\n\n        Returns:\n            JSON with audio_id, generation_time_s, audio_duration_s and the\n            audio itself shaped by OMNIVOICE_MCP_OUTPUT_MODE: base64 WAV data\n            ('resources', the default), a URL to the render plus a WAV under\n            OMNIVOICE_MCP_BASE_PATH when one is set ('files'), or all of the\n            above ('both'). Prefer 'files' for LLM agents: nothing large\n            enters the context.\n        ",
+      "inputSchema": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "language": {
+            "default": "Auto",
+            "title": "Language",
+            "type": "string"
+          },
+          "profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Profile Id"
+          },
+          "instruct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Instruct"
+          },
+          "speed": {
+            "default": 1.0,
+            "title": "Speed",
+            "type": "number"
+          },
+          "steps": {
+            "default": 16,
+            "title": "Steps",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "generate_speechArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "generate_speechOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_voices",
+      "description": "List all saved voice profiles.\n\n        Returns a JSON array of voice profiles with id, name, type (clone/design),\n        and personality.\n        ",
+      "inputSchema": {
+        "properties": {},
+        "title": "list_voicesArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "list_voicesOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_personalities",
+      "description": "List available voice personality presets.\n\n        Returns presets like Narrator, Casual, News Anchor, etc. with their\n        instruct text. Use the instruct text with generate_speech.\n        ",
+      "inputSchema": {
+        "properties": {},
+        "title": "list_personalitiesArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "list_personalitiesOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_languages",
+      "description": "List a sample of supported TTS languages.\n\n        VoiceStudio supports 646 languages. This returns the most popular ones\n        plus a note about the full count.\n        ",
+      "inputSchema": {
+        "properties": {},
+        "title": "list_languagesArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "list_languagesOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "transcribe",
+      "description": "Transcribe spoken audio to text.\n\n        Pass exactly one of audio_base64 or audio_path.\n\n        Args:\n            audio_base64: Base64-encoded audio bytes (wav/mp3/webm/m4a).\n            audio_path: Path to an audio file under OMNIVOICE_MCP_BASE_PATH\n                (relative to it, or absolute inside it). The base path is the\n                security boundary: with none configured, paths are refused.\n                Prefer this lane for LLM agents - the audio never enters the\n                agent's context.\n            language: Optional language hint; omit for auto-detect.\n\n        Returns:\n            JSON with the recognized text, language, and duration.\n        ",
+      "inputSchema": {
+        "properties": {
+          "audio_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Audio Base64"
+          },
+          "audio_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Audio Path"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Language"
+          }
+        },
+        "title": "transcribeArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "transcribeOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "check_health",
+      "description": "Check if the VoiceStudio backend is running and what GPU device is active.",
+      "inputSchema": {
+        "properties": {},
+        "title": "check_healthArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "check_healthOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "clone_voice",
+      "description": "Clone a new voice profile from a reference audio sample.\n\n        The new voice is immediately available for use with generate_speech\n        (pass the returned profile_id as the profile_id argument). Pass\n        exactly one of ref_audio_base64 or ref_audio_path.\n\n        Args:\n            name: A human-friendly name for the cloned voice.\n            ref_audio_base64: Base64-encoded audio (WAV, MP3, FLAC, etc.) of\n                the reference voice — 5-30 seconds of clean single-speaker\n                speech.\n            ref_text: Optional transcript of the reference audio (improves\n                quality for some engines).\n            instruct: Optional style instruction (e.g. 'whisper', 'excited').\n            language: Language of the reference audio (ISO code or 'Auto').\n            ref_audio_path: Path to the reference audio under\n                OMNIVOICE_MCP_BASE_PATH (relative to it, or absolute inside\n                it); refused when no base path is configured. Prefer this\n                lane for LLM agents - the clip never enters the context.\n\n        Returns:\n            JSON with the new profile's id, name, and kind.\n        ",
+      "inputSchema": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ref_audio_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ref Audio Base64"
+          },
+          "ref_text": {
+            "default": "",
+            "title": "Ref Text",
+            "type": "string"
+          },
+          "instruct": {
+            "default": "",
+            "title": "Instruct",
+            "type": "string"
+          },
+          "language": {
+            "default": "Auto",
+            "title": "Language",
+            "type": "string"
+          },
+          "ref_audio_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ref Audio Path"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "clone_voiceArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "clone_voiceOutput",
+        "type": "object"
+      }
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+[project]
+name = "vsbridge"
+version = "0.1.0"
+description = "Thin stdio MCP bridge that on-demand starts VoiceStudio and proxies its live MCP tools"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp==2.2.0",
+    "httpx==0.28.1",
+]
+
+[project.scripts]
+vsbridge = "vsbridge.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["vsbridge"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"vsbridge/catalog.json" = "vsbridge/catalog.json"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
