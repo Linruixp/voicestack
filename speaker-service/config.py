@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     idle_exit_s: int = 600
     # Optional env override (VASTACK_TOKEN); normally the token lives in Keychain.
     token: str | None = None
+    # App-data root for the durable registry (owner-only 700 on creation).
+    data_dir: Path = (
+        Path.home() / "Library" / "Application Support" / "VoiceStudioStack"
+    )
     # Diarization device, EXPLICITLY pinned after a CPU-vs-MPS test on this host
     # (2026-10-01): both devices returned identical turns on a 2-speaker clip;
     # MPS was ~5x faster (74 s clip: 10.5 s vs 53.6 s). There is no silent
@@ -56,6 +60,10 @@ class Settings(BaseSettings):
     @property
     def hf_hub_cache(self) -> str:
         return os.environ["HF_HUB_CACHE"]
+
+    @property
+    def db_path(self) -> Path:
+        return self.data_dir / "voicestack.db"
 
 
 @lru_cache(maxsize=1)
