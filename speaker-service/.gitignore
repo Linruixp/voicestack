@@ -11,3 +11,9 @@ wheels/
 
 # On-demand launcher log (written by ~/voicestack/bin/vs-speaker-up.sh)
 .uvicorn.log
+
+# Playwright e2e dependencies (install with: cd tests/e2e && npm install)
+tests/e2e/node_modules/
+tests/e2e/package-lock.json
+tests/e2e/playwright-report/
+tests/e2e/test-results/

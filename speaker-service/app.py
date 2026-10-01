@@ -16,9 +16,11 @@ from collections.abc import Callable
 
 import config
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 import api_routes
 import api_speaker_routes
+import ui
 from api_auth import SessionStore, allowed_origins
 from api_service import (
     AudioLoader,
@@ -64,8 +66,10 @@ def create_app(
         audio_loader=audio_loader,
         settings=resolved,
     )
+    app.include_router(ui.router)
     app.include_router(api_routes.router)
     app.include_router(api_speaker_routes.router)
+    app.mount("/static", StaticFiles(directory=ui.STATIC_DIR), name="static")
     return app
 
 

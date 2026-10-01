@@ -1,0 +1,37 @@
+/* Minimal functional styling for the five-view local UI. No theme, no animation. */
+:root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; color: #1b1b1b; background: #fafafa; font-size: 14px; }
+header { display: flex; align-items: baseline; gap: 12px; padding: 12px 20px; background: #1f2937; color: #fff; }
+header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+.health { font-size: 12px; color: #86efac; }
+.health.down { color: #fca5a5; }
+nav { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px 20px 0; }
+nav button { border: 1px solid #d1d5db; background: #fff; padding: 8px 12px; cursor: pointer; border-radius: 6px 6px 0 0; font-size: 13px; }
+nav button.active { background: #1f2937; color: #fff; border-color: #1f2937; }
+main { padding: 16px 20px 60px; }
+.view { display: none; }
+.view.active { display: block; }
+h2 { font-size: 15px; margin: 0 0 12px; }
+form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 8px; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #4b5563; }
+input, select { padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; background: #fff; }
+button { padding: 7px 12px; border: 1px solid #1f2937; background: #1f2937; color: #fff; border-radius: 4px; cursor: pointer; font-size: 13px; }
+button.secondary { background: #fff; color: #1f2937; }
+button.danger { border-color: #b91c1c; background: #b91c1c; }
+fieldset { border: 1px solid #e5e7eb; border-radius: 6px; margin: 12px 0; padding: 12px; }
+legend { font-size: 12px; font-weight: 600; color: #374151; padding: 0 4px; }
+table { width: 100%; border-collapse: collapse; background: #fff; }
+th, td { border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; font-size: 13px; vertical-align: top; }
+th { background: #f3f4f6; font-size: 12px; }
+.status { font-size: 12px; color: #4b5563; min-height: 16px; }
+.segment { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
+.segment .time { color: #6b7280; font-variant-numeric: tabular-nums; min-width: 92px; }
+.segment .who { min-width: 120px; font-weight: 600; }
+.segment .who.unknown { color: #b45309; }
+.cluster { border: 1px solid #f59e0b; background: #fffbeb; border-radius: 6px; padding: 10px; margin: 12px 0; }
+.cluster.flagged { border-width: 2px; }
+.cluster h3 { margin: 0 0 6px; font-size: 13px; color: #92400e; }
+.cluster button { background: #b45309; border-color: #b45309; }
+dialog { border: 1px solid #d1d5db; border-radius: 8px; padding: 16px; max-width: 420px; }
+dialog menu { display: flex; gap: 8px; justify-content: flex-end; padding: 0; margin: 12px 0 0; }

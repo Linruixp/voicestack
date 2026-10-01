@@ -12,11 +12,10 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import HTMLResponse
 from pydantic import ValidationError
 from starlette.datastructures import UploadFile as FormUploadFile
 
-from api_auth import SESSION_COOKIE, require_mutation_auth, require_read_auth
+from api_auth import require_mutation_auth, require_read_auth
 from api_operations import split_cluster
 from api_schemas import IdentifyRequest, SplitRequest
 from api_service import (
@@ -31,21 +30,6 @@ from api_service import (
 
 router = APIRouter()
 
-UI_SESSION_MAX_AGE = 86_400
-
-# Task 25 replaces this placeholder with the five-screen UI. It must never
-# embed the service token: the page authenticates via the session cookie only.
-_UI_PLACEHOLDER = """<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><title>VoiceStudio Speaker Service</title></head>
-<body>
-<h1>VoiceStudio Speaker Service</h1>
-<p>The web UI is built in task 25. This page exists to mint the UI session
-cookie; the service token is never served to the browser.</p>
-</body>
-</html>
-"""
-
 
 def _deps(request: Request) -> ServiceDeps:
     return request.app.state.deps
@@ -54,21 +38,6 @@ def _deps(request: Request) -> ServiceDeps:
 @router.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
-
-
-@router.get("/", response_class=HTMLResponse)
-def ui_root(request: Request) -> HTMLResponse:
-    """First page load: mint the server-side session cookie for the UI."""
-    response = HTMLResponse(_UI_PLACEHOLDER)
-    response.set_cookie(
-        SESSION_COOKIE,
-        request.app.state.sessions.mint(),
-        max_age=UI_SESSION_MAX_AGE,
-        httponly=True,
-        samesite="lax",
-        path="/",
-    )
-    return response
 
 
 @router.get("/meetings", dependencies=[Depends(require_read_auth)])

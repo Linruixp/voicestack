@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VoiceStudio Speaker Service</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header>
+  <h1>VoiceStudio Speaker Service</h1>
+  <span id="health" class="health" data-testid="health" title="service activity (GET /health keepalive)">starting…</span>
+</header>
+
+<nav id="tabs">
+  <button type="button" data-view="upload" data-testid="tab-upload" class="active">1 · Upload meeting</button>
+  <button type="button" data-view="transcript" data-testid="tab-transcript">2 · Transcript</button>
+  <button type="button" data-view="assign" data-testid="tab-assign">3 · Assign / merge / split</button>
+  <button type="button" data-view="speakers" data-testid="tab-speakers">4 · Speaker directory</button>
+  <button type="button" data-view="meetings" data-testid="tab-meetings">5 · Meeting history</button>
+</nav>
+
+<main>
+  <!-- 1 · UPLOAD MEETING -->
+  <section id="view-upload" class="view active" data-testid="view-upload">
+    <h2>Upload meeting</h2>
+    <form id="upload-form">
+      <label>Recording <input type="file" id="upload-file" data-testid="upload-file" accept="audio/*,.wav,.mp3,.m4a,.flac" required></label>
+      <label>Title <input type="text" id="upload-title" data-testid="upload-title" placeholder="Weekly sync"></label>
+      <button type="submit" id="upload-btn" data-testid="upload-btn">Upload &amp; transcribe</button>
+    </form>
+    <p id="upload-status" class="status" data-testid="upload-status"></p>
+  </section>
+
+  <!-- 2 · TRANSCRIPT -->
+  <section id="view-transcript" class="view" data-testid="view-transcript">
+    <h2>Transcript</h2>
+    <label>Meeting
+      <select id="transcript-meeting" data-testid="transcript-meeting"></select>
+    </label>
+    <div id="transcript-body" data-testid="transcript-body"></div>
+  </section>
+
+  <!-- 3 · ASSIGN / MERGE / SPLIT -->
+  <section id="view-assign" class="view" data-testid="view-assign">
+    <h2>Assign / merge / split</h2>
+    <p>Selected cluster: <strong id="assign-cluster" data-testid="assign-cluster">none — pick one in the transcript</strong></p>
+
+    <fieldset>
+      <legend>Name this cluster as a NEW speaker</legend>
+      <form id="enroll-form">
+        <label>Name <input type="text" id="enroll-name" data-testid="enroll-name" required></label>
+        <label>Organization <input type="text" id="enroll-org" data-testid="enroll-org"></label>
+        <label>Notes <input type="text" id="enroll-notes" data-testid="enroll-notes"></label>
+        <button type="submit" data-testid="enroll-btn">Create speaker from cluster</button>
+      </form>
+    </fieldset>
+
+    <fieldset>
+      <legend>Assign this cluster to an EXISTING speaker</legend>
+      <form id="attach-form">
+        <label>Speaker <select id="attach-speaker" data-testid="attach-speaker"></select></label>
+        <button type="submit" data-testid="attach-btn">Add voiceprint to existing speaker</button>
+      </form>
+    </fieldset>
+
+    <fieldset>
+      <legend>Merge two speakers (source is deleted)</legend>
+      <form id="merge-form">
+        <label>Target (kept) <select id="merge-target" data-testid="merge-target"></select></label>
+        <label>Source (deleted) <select id="merge-source" data-testid="merge-source"></select></label>
+        <button type="submit" data-testid="merge-btn">Merge source into target</button>
+      </form>
+    </fieldset>
+
+    <fieldset>
+      <legend>Split a cluster</legend>
+      <form id="split-form">
+        <label>Meeting <select id="split-meeting" data-testid="split-meeting"></select></label>
+        <label>Cluster <select id="split-cluster" data-testid="split-cluster"></select></label>
+        <label>At seconds <input type="number" id="split-at" data-testid="split-at" step="any" min="0" required></label>
+        <button type="submit" data-testid="split-btn">Split cluster</button>
+      </form>
+    </fieldset>
+
+    <p id="assign-status" class="status" data-testid="assign-status"></p>
+  </section>
+
+  <!-- 4 · SPEAKER DIRECTORY -->
+  <section id="view-speakers" class="view" data-testid="view-speakers">
+    <h2>Speaker directory</h2>
+    <table>
+      <thead><tr><th>Name</th><th>Organization</th><th>Notes</th><th>Voiceprints</th><th></th></tr></thead>
+      <tbody id="speaker-rows" data-testid="speaker-rows"></tbody>
+    </table>
+    <p id="speaker-status" class="status" data-testid="speaker-status"></p>
+  </section>
+
+  <!-- 5 · MEETING HISTORY -->
+  <section id="view-meetings" class="view" data-testid="view-meetings">
+    <h2>Meeting history</h2>
+    <table>
+      <thead><tr><th>Title</th><th>Date</th><th>Linked speakers</th><th></th></tr></thead>
+      <tbody id="meeting-rows" data-testid="meeting-rows"></tbody>
+    </table>
+  </section>
+</main>
+
+<dialog id="purge-dialog" data-testid="purge-dialog">
+  <form id="purge-form">
+    <h3>Delete speaker</h3>
+    <p id="purge-message" data-testid="purge-message"></p>
+    <label>Type the speaker name to confirm
+      <input type="text" id="purge-confirm" data-testid="purge-confirm" autocomplete="off">
+    </label>
+    <menu>
+      <button type="button" id="purge-cancel" data-testid="purge-cancel">Cancel</button>
+      <button type="button" class="danger" id="purge-delete" data-testid="purge-delete">Delete &amp; purge</button>
+    </menu>
+  </form>
+</dialog>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

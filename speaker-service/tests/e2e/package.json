@@ -1,0 +1,12 @@
+{
+  "name": "vs-ui-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Playwright click-through for the VoiceStudio five-view local UI.",
+  "scripts": {
+    "test": "node ui_e2e.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.59.0"
+  }
+}
