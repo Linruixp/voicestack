@@ -62,16 +62,6 @@ class SpeakerOps:
         ).fetchall()
         return [speaker_from_row(row) for row in rows]
 
-    def rename_speaker(self, speaker_id: int, name: str) -> bool:
-        clean = name.strip()
-        if not clean:
-            raise RegistryError("speaker name must not be empty")
-        with self._conn:
-            cursor = self._conn.execute(
-                "UPDATE speakers SET name = ? WHERE id = ?", (clean, speaker_id)
-            )
-        return cursor.rowcount > 0
-
     def delete_speaker(self, speaker_id: int) -> bool:
         """Apply the documented ON DELETE policy; True if a speaker was removed."""
         with self._conn:

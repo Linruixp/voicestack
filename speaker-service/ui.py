@@ -19,11 +19,10 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from api_auth import SESSION_COOKIE
+from api_auth import SESSION_COOKIE, _SESSION_TTL_SECONDS
 
 router = APIRouter()
 
-UI_SESSION_MAX_AGE = 86_400
 STATIC_DIR = Path(__file__).resolve().parent / "ui_static"
 
 
@@ -34,7 +33,7 @@ def ui_root(request: Request) -> HTMLResponse:
     response.set_cookie(
         SESSION_COOKIE,
         request.app.state.sessions.mint(),
-        max_age=UI_SESSION_MAX_AGE,
+        max_age=_SESSION_TTL_SECONDS,
         httponly=True,
         samesite="lax",
         path="/",

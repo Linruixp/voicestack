@@ -283,7 +283,10 @@ done
 
 log "uninstall.sh starting (dry-run=$DRY_RUN remove-app=$REMOVE_APP)"
 
-do_backup
+if ! do_backup; then
+  log_err "backup failed; aborting uninstall before any teardown"
+  exit 1
+fi
 if [ "$BACKUP_ONLY" = 1 ]; then
   log "backup-only requested; done"
   exit 0

@@ -38,7 +38,8 @@ probe() {
 
 # ── lock (safe concurrent re-runs) ───────────────────────────────────────────
 LOCK_DIR="/tmp/vs-ensure-up.lock.${VS_PORT}"
-finish() { rm -rf "$LOCK_DIR"; }
+LOCK_HELD=0
+finish() { if [ "$LOCK_HELD" = 1 ]; then rm -rf "$LOCK_DIR"; fi; }
 trap finish EXIT
 
 # If another instance is already launching, wait for it instead of racing.
@@ -57,6 +58,7 @@ if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   log_err "concurrent launch timed out after ${VS_TIMEOUT}s"
   exit 1
 fi
+LOCK_HELD=1
 
 # ── fast path: already up ─────────────────────────────────────────────────────
 if probe; then

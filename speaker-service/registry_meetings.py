@@ -47,6 +47,19 @@ class MeetingOps:
         ).fetchall()
         return [meeting_from_row(row) for row in rows]
 
+    def delete_meeting(self, meeting_id: int) -> bool:
+        """Remove a meeting and everything derived from it.
+
+        Clusters, speaker links, segments and jobs are deleted by the schema's
+        ``ON DELETE CASCADE``; used to roll back a failed pre-transcription
+        attempt so no orphan rows remain.
+        """
+        with self._conn:
+            cursor = self._conn.execute(
+                "DELETE FROM meetings WHERE id = ?", (meeting_id,)
+            )
+        return cursor.rowcount > 0
+
     def add_cluster(
         self,
         meeting_id: int,

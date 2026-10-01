@@ -7,7 +7,9 @@ transcription never touches the network.
 
 The module also pre-screens for digital silence: Whisper happily
 hallucinates on a silent clip, so a fully silent input returns an empty
-transcript instead of invented text.
+transcript instead of invented text. An input the decoder cannot read raises
+:class:`InvalidAudioError`, so callers can reject the upload as a typed 4xx
+instead of surfacing an opaque 500.
 """
 
 from __future__ import annotations
@@ -39,6 +41,14 @@ TRANSCRIPT_DIR = (
 
 # RMS threshold (dBFS) below which a clip is considered physically silent.
 SILENCE_THRESHOLD_DBFS = -50.0
+
+
+class InvalidAudioError(ValueError):
+    """The input could not be decoded as audio.
+
+    Raised before transcription begins; the pipeline rolls back the meeting and
+    job it had created so an undecodable upload leaves no orphan rows behind.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,13 +190,20 @@ def transcribe_raw(
 
     import mlx_whisper
 
-    return mlx_whisper.transcribe(
-        str(path),
-        path_or_hf_repo=str(model_snapshot_path()),
-        word_timestamps=word_timestamps,
-        language=language,
-        verbose=None,
-    )
+    try:
+        return mlx_whisper.transcribe(
+            str(path),
+            path_or_hf_repo=str(model_snapshot_path()),
+            word_timestamps=word_timestamps,
+            language=language,
+            verbose=None,
+        )
+    except RuntimeError as exc:
+        # mlx-whisper 0.4.3 (pinned) raises exactly this message from its
+        # ffmpeg-backed ``audio.load_audio`` when the input is not decodable.
+        if "Failed to load audio" in str(exc):
+            raise InvalidAudioError(f"{path} is not decodable audio: {exc}") from exc
+        raise
 
 
 def parse_transcript(raw: dict[str, Any]) -> Transcript:
@@ -260,16 +277,3 @@ def persist_raw_transcript(
         json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     return destination
-
-
-def transcribe_and_persist(
-    audio_path: str | os.PathLike[str],
-    *,
-    language: str | None = None,
-    word_timestamps: bool = True,
-    transcript_dir: str | os.PathLike[str] | None = None,
-) -> tuple[Transcript, Path]:
-    """Transcribe, persist the raw result, and return ``(transcript, path)``."""
-    raw = transcribe_raw(audio_path, language=language, word_timestamps=word_timestamps)
-    saved = persist_raw_transcript(raw, audio_path, transcript_dir=transcript_dir)
-    return parse_transcript(raw), saved

@@ -24,7 +24,9 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+import asr
 from config import Settings
+from registry import open_registry
 
 TOKEN_HEADER = "Authorization"
 
@@ -171,6 +173,51 @@ def test_uploaded_audio_is_deleted_after_job_only_when_enabled(
     assert response.status_code == 201
     audio = Path(response.json()["audio_path"])
     assert audio.exists() is not delete_after
+
+
+def test_non_audio_upload_gets_4xx_with_no_meeting_job_or_retained_file(
+    client: TestClient, auth: dict[str, str], db_path: Path, tmp_path: Path
+) -> None:
+    # When: a text file is posted to the meeting upload endpoint
+    response = client.post(
+        "/meetings",
+        headers=auth,
+        files={"file": ("meeting-notes.txt", b"not audio", "text/plain")},
+        data={"title": "Junk"},
+    )
+
+    # Then: it is refused with a typed 4xx and an actionable detail - not a 500
+    assert response.status_code == 415
+    assert "audio" in response.json()["detail"]
+
+    # And: exactly zero meetings, zero jobs and no upload file were left behind
+    with open_registry(db_path) as registry:
+        assert registry.list_meetings() == []
+        assert registry.get_job(1) is None
+    assert list((tmp_path / "uploads").glob("*")) == []
+
+
+def test_undecodable_upload_returns_422_and_deletes_the_stored_file(
+    make_app: Callable[..., FastAPI], service_token: str, tmp_path: Path
+) -> None:
+    # Given: a runner that reports the upload is not decodable audio
+    def runner(path: Path, title: str, registry: object) -> None:
+        raise asr.InvalidAudioError(f"{path} is not decodable audio")
+
+    client = TestClient(make_app(runner=runner))
+
+    # When: an audio-named upload reaches the pipeline
+    response = client.post(
+        "/meetings",
+        headers={TOKEN_HEADER: f"Bearer {service_token}"},
+        files={"file": ("broken.wav", b"RIFF-broken", "audio/wav")},
+        data={"title": "Broken"},
+    )
+
+    # Then: it is a typed 422 and the temporarily stored upload is gone
+    assert response.status_code == 422
+    assert "decodable audio" in response.json()["detail"]
+    assert list((tmp_path / "uploads").glob("*")) == []
 
 
 def _free_loopback_port() -> int:

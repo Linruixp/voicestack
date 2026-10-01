@@ -15,6 +15,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import ValidationError
 from starlette.datastructures import UploadFile as FormUploadFile
 
+import asr
 from api_auth import require_mutation_auth, require_read_auth
 from api_operations import split_cluster
 from api_schemas import IdentifyRequest, SplitRequest
@@ -29,6 +30,56 @@ from api_service import (
 )
 
 router = APIRouter()
+
+# Extensions the pipeline is expected to decode; the UI advertises the common
+# four. An upload whose name and declared type both say "not audio" is refused
+# before a byte is written (415) or any meeting/job row is created.
+_AUDIO_SUFFIXES = frozenset(
+    {
+        ".3gp",
+        ".aac",
+        ".aif",
+        ".aifc",
+        ".aiff",
+        ".amr",
+        ".caf",
+        ".flac",
+        ".m4a",
+        ".m4b",
+        ".m4v",
+        ".mkv",
+        ".mov",
+        ".mp3",
+        ".mp4",
+        ".oga",
+        ".ogg",
+        ".opus",
+        ".wav",
+        ".wave",
+        ".webm",
+        ".wma",
+    }
+)
+
+
+def _ensure_audio_upload(upload: UploadFile) -> None:
+    """Reject an upload that is clearly not audio (typed 415, nothing written)."""
+    suffix = Path(upload.filename or "").suffix.lower()
+    media_type = (upload.content_type or "").split(";")[0].strip().lower()
+    if suffix in _AUDIO_SUFFIXES:
+        return
+    if media_type.startswith(("audio/", "video/")):
+        return
+    # Unknown binary types go to the decoder, which reports undecodable input
+    # as a typed 422; known non-media types (text/*, application/pdf, ...) are
+    # refused here.
+    if media_type == "application/octet-stream":
+        return
+    raise HTTPException(
+        415,
+        f"uploaded file {upload.filename!r} is not audio: use an audio file "
+        "extension (.wav, .mp3, .m4a, .flac, ...) or an audio/* content type",
+    )
 
 
 def _deps(request: Request) -> ServiceDeps:
@@ -60,10 +111,17 @@ def upload_meeting(
     content = file.file.read()
     if not content:
         raise HTTPException(400, "uploaded audio is empty")
+    _ensure_audio_upload(file)
     deps = _deps(request)
     path = save_upload(deps.settings.data_dir / "uploads", file.filename, content)
-    with request.app.state.registry_factory() as registry:
-        return run_meeting(registry, deps, path, title or path.stem).to_dict()
+    try:
+        with request.app.state.registry_factory() as registry:
+            return run_meeting(registry, deps, path, title or path.stem).to_dict()
+    except asr.InvalidAudioError as exc:
+        # Pre-transcription failure: the pipeline rolled back its meeting and
+        # job, so only the upload is left to remove.
+        path.unlink(missing_ok=True)
+        raise HTTPException(422, "uploaded file is not decodable audio") from exc
 
 
 @router.get("/meetings/{meeting_id}", dependencies=[Depends(require_read_auth)])

@@ -84,8 +84,14 @@ def get_settings() -> Settings:
     return Settings()
 
 
+@lru_cache(maxsize=1)
 def _keychain_token() -> str | None:
-    """Read the service bearer token from the macOS Keychain."""
+    """Read the service bearer token from the macOS Keychain.
+
+    Cached: ``security`` is spawned at most once per process, so an
+    authenticated request never forks a subprocess. Token rotation therefore
+    takes effect on the next service restart (the service idle-exits anyway).
+    """
     try:
         result = subprocess.run(
             [

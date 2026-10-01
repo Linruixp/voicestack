@@ -285,6 +285,26 @@ def test_failure_marks_job_failed_and_reraises(tmp_path: Path) -> None:
         assert registry.segments_for_meeting(job.meeting_id) == []
 
 
+def test_undecodable_audio_rolls_back_meeting_and_job(tmp_path: Path) -> None:
+    # Given: a transcriber that reports the input is not decodable audio
+    audio = _write_wav(tmp_path / "not_audio.wav", _block(1.0, 0.5))
+
+    def transcribe(path: Path) -> asr.Transcript:
+        raise asr.InvalidAudioError(f"{path} is not decodable audio")
+
+    with open_registry(tmp_path / "registry.db") as registry:
+        # When/Then: the typed pre-transcription failure propagates
+        with pytest.raises(asr.InvalidAudioError):
+            pipeline.transcribe_meeting(
+                audio,
+                registry=registry,
+                config=pipeline.PipelineConfig(transcribe=transcribe),
+            )
+        # And: no orphan meeting or job remains (unlike a mid-pipeline failure)
+        assert registry.list_meetings() == []
+        assert registry.get_job(1) is None
+
+
 def test_missing_audio_raises_before_any_registry_write(tmp_path: Path) -> None:
     with open_registry(tmp_path / "registry.db") as registry:
         with pytest.raises(FileNotFoundError):

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from pathlib import Path
 
 import pytest
@@ -76,6 +77,14 @@ def test_silence_returns_empty_transcript_without_error() -> None:
     transcript = asr.transcribe_file(FIXTURES / "silence_5s.wav")
     assert transcript.text == ""
     assert transcript.segments == ()
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg CLI not on PATH")
+def test_undecodable_input_raises_typed_error(tmp_path: Path) -> None:
+    junk = tmp_path / "notes.txt"
+    junk.write_bytes(b"not audio")
+    with pytest.raises(asr.InvalidAudioError, match="not decodable audio"):
+        asr.transcribe_raw(junk)
 
 
 def test_persist_raw_transcript_writes_schema(en_raw: dict, tmp_path: Path) -> None:

@@ -7,8 +7,10 @@ Every returned segment carries a ``speaker_id``: the matched speaker's NAME or
 and NO name and returned in ``unknown_clusters`` with its provisional registry
 ``cluster_id`` - naming it is the enrollment workflow's job. Matched clusters
 become ``state='attached'``. Jobs walk ``queued → running → done|failed``
-(failure records its error and re-raises). No voiceprint is written here:
-matching never enrolls or re-enrolls anyone.
+(failure records its error and re-raises). An upload the decoder cannot read
+raises ``asr.InvalidAudioError`` and its meeting and job are rolled back so no
+orphan rows remain. No voiceprint is written here: matching never enrolls or
+re-enrolls anyone.
 """
 
 from __future__ import annotations
@@ -127,7 +129,8 @@ def _resolve_threshold(override: float | None) -> float:
     return value
 
 
-def _load_audio(path: Path) -> tuple[np.ndarray, int]:
+def load_audio(path: Path) -> tuple[np.ndarray, int]:
+    """Decode an audio file to mono samples plus its sample rate."""
     import torchaudio
 
     waveform, sample_rate = torchaudio.load(str(path))
@@ -165,7 +168,7 @@ def _run_meeting(job: _Job, path: Path, config: PipelineConfig) -> MeetingResult
 
     diarize_audio = config.diarize or diarize.diarize
     aligned = align.align_transcript(transcript, diarize_audio(path))
-    audio = _load_audio(path)
+    audio = load_audio(path)
     from embed import IdentityEmbedder
     from match import MatchStatus, match_speaker
 
@@ -286,6 +289,12 @@ def transcribe_meeting(
         job = _Job(store, meeting_id, job_id, title)
         try:
             result = _run_meeting(job, path, overrides)
+        except asr.InvalidAudioError:
+            # Pre-transcription failure: the upload is not decodable audio, so
+            # roll the meeting (and its cascaded job) back instead of leaving
+            # an orphan row unreachable through the API.
+            store.delete_meeting(meeting_id)
+            raise
         except Exception as exc:
             store.update_job(job_id, JobState.FAILED, f"{type(exc).__name__}: {exc}")
             raise

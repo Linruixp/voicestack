@@ -21,6 +21,7 @@ from fastapi import HTTPException
 
 import pipeline
 from config import Settings
+from pipeline import load_audio
 from registry import ClusterState, Job, Meeting, Registry, Speaker
 
 UNKNOWN_SPEAKER = pipeline.UNKNOWN_SPEAKER
@@ -90,13 +91,6 @@ def default_embedder_factory() -> Embedder:
     from embed import IdentityEmbedder
 
     return IdentityEmbedder()
-
-
-def load_audio(path: Path) -> tuple[np.ndarray, int]:
-    import torchaudio
-
-    waveform, sample_rate = torchaudio.load(str(path))
-    return waveform.mean(dim=0).numpy(), int(sample_rate)
 
 
 def save_upload(directory: Path, filename: str | None, content: bytes) -> Path:
