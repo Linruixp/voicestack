@@ -1,0 +1,127 @@
+{
+  "schema": "voicestack.fixtures.meetings/v1",
+  "description": "2-speaker x 2-recording labeled set; one speaker per file, each speaker present in rec1 and rec2.",
+  "generator": "fixtures/build_meetings.py (macOS say + Python wave)",
+  "sample_rate": 16000,
+  "channels": 1,
+  "sample_format": "s16le",
+  "gap_seconds": 0.4,
+  "speakers": {
+    "A": {
+      "voice": "Samantha"
+    },
+    "B": {
+      "voice": "Fred"
+    }
+  },
+  "files": {
+    "spkA_rec1.wav": {
+      "speaker": "A",
+      "voice": "Samantha",
+      "language": "en",
+      "duration": 33.406,
+      "transcript": "Good morning everyone, thank you for joining today's planning session. Before we dive into the agenda, I want to review the progress we made last week and highlight a few open questions that still need answers. The first item on our list is the rollout schedule. We have three regional teams, and each of them needs a clear timeline, a named owner, and a rollback plan in case something goes wrong during deployment. I spoke with the finance group yesterday, and they confirmed the budget for the second quarter. That means we can move ahead with the hardware purchase without waiting for additional approvals.",
+      "segments": [
+        {
+          "speaker": "A",
+          "start": 0.0,
+          "end": 11.532,
+          "text": "Good morning everyone, thank you for joining today's planning session. Before we dive into the agenda, I want to review the progress we made last week and highlight a few open questions that still need answers."
+        },
+        {
+          "speaker": "A",
+          "start": 11.932,
+          "end": 23.009,
+          "text": "The first item on our list is the rollout schedule. We have three regional teams, and each of them needs a clear timeline, a named owner, and a rollback plan in case something goes wrong during deployment."
+        },
+        {
+          "speaker": "A",
+          "start": 23.409,
+          "end": 33.006,
+          "text": "I spoke with the finance group yesterday, and they confirmed the budget for the second quarter. That means we can move ahead with the hardware purchase without waiting for additional approvals."
+        }
+      ]
+    },
+    "spkA_rec2.wav": {
+      "speaker": "A",
+      "voice": "Samantha",
+      "language": "en",
+      "duration": 34.073,
+      "transcript": "Let me summarize where we stand. We have finished the design review, we have a working prototype, and we are waiting on the security audit before we can ship the first release to customers. One thing I want to emphasize is documentation. If we do not write down our decisions, the next person who joins this project will spend weeks reconstructing what we already know, and that slows everyone down. Could you take a look at the incident report from Tuesday? I want to understand why the backup job failed, and whether we need to change the alerting thresholds so we catch that kind of problem earlier.",
+      "segments": [
+        {
+          "speaker": "A",
+          "start": 0.0,
+          "end": 10.314,
+          "text": "Let me summarize where we stand. We have finished the design review, we have a working prototype, and we are waiting on the security audit before we can ship the first release to customers."
+        },
+        {
+          "speaker": "A",
+          "start": 10.714,
+          "end": 22.721,
+          "text": "One thing I want to emphasize is documentation. If we do not write down our decisions, the next person who joins this project will spend weeks reconstructing what we already know, and that slows everyone down."
+        },
+        {
+          "speaker": "A",
+          "start": 23.121,
+          "end": 33.673,
+          "text": "Could you take a look at the incident report from Tuesday? I want to understand why the backup job failed, and whether we need to change the alerting thresholds so we catch that kind of problem earlier."
+        }
+      ]
+    },
+    "spkB_rec1.wav": {
+      "speaker": "B",
+      "voice": "Fred",
+      "language": "en",
+      "duration": 40.672,
+      "transcript": "Thanks, that is a helpful summary. From my side, the engineering team has been focused on stability. We fixed the two most common crashes, and we are now measuring how often they occur in the field. I have a concern about the timeline. If the audit does not start until next month, we will be testing and documenting at the same time, which historically has led to mistakes and rushed releases. On the budget question, I think we should keep a reserve. Hardware prices have been moving around, and I would rather have room to absorb a surprise than come back asking for more money later.",
+      "segments": [
+        {
+          "speaker": "B",
+          "start": 0.0,
+          "end": 14.24,
+          "text": "Thanks, that is a helpful summary. From my side, the engineering team has been focused on stability. We fixed the two most common crashes, and we are now measuring how often they occur in the field."
+        },
+        {
+          "speaker": "B",
+          "start": 14.64,
+          "end": 27.332,
+          "text": "I have a concern about the timeline. If the audit does not start until next month, we will be testing and documenting at the same time, which historically has led to mistakes and rushed releases."
+        },
+        {
+          "speaker": "B",
+          "start": 27.732,
+          "end": 40.272,
+          "text": "On the budget question, I think we should keep a reserve. Hardware prices have been moving around, and I would rather have room to absorb a surprise than come back asking for more money later."
+        }
+      ]
+    },
+    "spkB_rec2.wav": {
+      "speaker": "B",
+      "voice": "Fred",
+      "language": "en",
+      "duration": 36.882,
+      "transcript": "Let me add one point about the customers. A few of our largest accounts have asked for an early preview, and I believe giving them access now would generate useful feedback before the official launch. I can own the rollout plan for the eastern region. I already have contacts there, and I understand the local constraints, so I can put together a draft by the end of the week. Before we close, I want to make sure we agree on the next steps. Who is responsible for the security audit, and what do you need from the rest of us to get it started?",
+      "segments": [
+        {
+          "speaker": "B",
+          "start": 0.0,
+          "end": 12.807,
+          "text": "Let me add one point about the customers. A few of our largest accounts have asked for an early preview, and I believe giving them access now would generate useful feedback before the official launch."
+        },
+        {
+          "speaker": "B",
+          "start": 13.207,
+          "end": 24.784,
+          "text": "I can own the rollout plan for the eastern region. I already have contacts there, and I understand the local constraints, so I can put together a draft by the end of the week."
+        },
+        {
+          "speaker": "B",
+          "start": 25.184,
+          "end": 36.482,
+          "text": "Before we close, I want to make sure we agree on the next steps. Who is responsible for the security audit, and what do you need from the rest of us to get it started?"
+        }
+      ]
+    }
+  }
+}

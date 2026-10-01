@@ -1,0 +1,11 @@
+# not_audio.txt
+
+This file exists to prove that non-audio inputs are handled gracefully.
+
+It is deliberately NOT an audio container: it has a .txt extension and
+contains only UTF-8 text. Uploading it to the meeting-transcription API or
+the audiobook importer must produce a clear, structured error -- never a
+crash and never a silent success.
+
+Lines: 9
+Purpose: fixtures/not_audio.txt (task 36)

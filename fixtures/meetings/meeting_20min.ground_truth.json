@@ -1,0 +1,621 @@
+{
+  "schema": "voicestack.fixtures.meeting20/v1",
+  "description": "~20 minute two-speaker meeting built by concatenating alternating utterances.",
+  "generator": "fixtures/build_meetings.py (macOS say + Python wave)",
+  "sample_rate": 16000,
+  "channels": 1,
+  "sample_format": "s16le",
+  "gap_seconds": 0.4,
+  "speakers": {
+    "A": {
+      "voice": "Samantha"
+    },
+    "B": {
+      "voice": "Fred"
+    }
+  },
+  "duration": 1211.4,
+  "turn_count": 100,
+  "segments": [
+    {
+      "speaker": "A",
+      "start": 0.0,
+      "end": 11.532,
+      "text": "Good morning everyone, thank you for joining today's planning session. Before we dive into the agenda, I want to review the progress we made last week and highlight a few open questions that still need answers."
+    },
+    {
+      "speaker": "B",
+      "start": 11.932,
+      "end": 26.173,
+      "text": "Thanks, that is a helpful summary. From my side, the engineering team has been focused on stability. We fixed the two most common crashes, and we are now measuring how often they occur in the field."
+    },
+    {
+      "speaker": "A",
+      "start": 26.573,
+      "end": 37.649,
+      "text": "The first item on our list is the rollout schedule. We have three regional teams, and each of them needs a clear timeline, a named owner, and a rollback plan in case something goes wrong during deployment."
+    },
+    {
+      "speaker": "B",
+      "start": 38.049,
+      "end": 50.74,
+      "text": "I have a concern about the timeline. If the audit does not start until next month, we will be testing and documenting at the same time, which historically has led to mistakes and rushed releases."
+    },
+    {
+      "speaker": "A",
+      "start": 51.14,
+      "end": 60.738,
+      "text": "I spoke with the finance group yesterday, and they confirmed the budget for the second quarter. That means we can move ahead with the hardware purchase without waiting for additional approvals."
+    },
+    {
+      "speaker": "B",
+      "start": 61.138,
+      "end": 73.678,
+      "text": "On the budget question, I think we should keep a reserve. Hardware prices have been moving around, and I would rather have room to absorb a surprise than come back asking for more money later."
+    },
+    {
+      "speaker": "A",
+      "start": 74.078,
+      "end": 84.392,
+      "text": "Let me summarize where we stand. We have finished the design review, we have a working prototype, and we are waiting on the security audit before we can ship the first release to customers."
+    },
+    {
+      "speaker": "B",
+      "start": 84.792,
+      "end": 97.6,
+      "text": "Let me add one point about the customers. A few of our largest accounts have asked for an early preview, and I believe giving them access now would generate useful feedback before the official launch."
+    },
+    {
+      "speaker": "A",
+      "start": 97.999,
+      "end": 110.006,
+      "text": "One thing I want to emphasize is documentation. If we do not write down our decisions, the next person who joins this project will spend weeks reconstructing what we already know, and that slows everyone down."
+    },
+    {
+      "speaker": "B",
+      "start": 110.406,
+      "end": 121.983,
+      "text": "I can own the rollout plan for the eastern region. I already have contacts there, and I understand the local constraints, so I can put together a draft by the end of the week."
+    },
+    {
+      "speaker": "A",
+      "start": 122.383,
+      "end": 132.935,
+      "text": "Could you take a look at the incident report from Tuesday? I want to understand why the backup job failed, and whether we need to change the alerting thresholds so we catch that kind of problem earlier."
+    },
+    {
+      "speaker": "B",
+      "start": 133.335,
+      "end": 144.632,
+      "text": "Before we close, I want to make sure we agree on the next steps. Who is responsible for the security audit, and what do you need from the rest of us to get it started?"
+    },
+    {
+      "speaker": "A",
+      "start": 145.032,
+      "end": 156.565,
+      "text": "Good morning everyone, thank you for joining today's planning session. Before we dive into the agenda, I want to review the progress we made last week and highlight a few open questions that still need answers."
+    },
+    {
+      "speaker": "B",
+      "start": 156.965,
+      "end": 171.205,
+      "text": "Thanks, that is a helpful summary. From my side, the engineering team has been focused on stability. We fixed the two most common crashes, and we are now measuring how often they occur in the field."
+    },
+    {
+      "speaker": "A",
+      "start": 171.605,
+      "end": 182.682,
+      "text": "The first item on our list is the rollout schedule. We have three regional teams, and each of them needs a clear timeline, a named owner, and a rollback plan in case something goes wrong during deployment."
+    },
+    {
+      "speaker": "B",
+      "start": 183.082,
+      "end": 195.773,
+      "text": "I have a concern about the timeline. If the audit does not start until next month, we will be testing and documenting at the same time, which historically has led to mistakes and rushed releases."
+    },
+    {
+      "speaker": "A",
+      "start": 196.173,
+      "end": 205.77,
+      "text": "I spoke with the finance group yesterday, and they confirmed the budget for the second quarter. That means we can move ahead with the hardware purchase without waiting for additional approvals."
+    },
+    {
+      "speaker": "B",
+      "start": 206.171,
+      "end": 218.711,
+      "text": "On the budget question, I think we should keep a reserve. Hardware prices have been moving around, and I would rather have room to absorb a surprise than come back asking for more money later."
+    },
+    {
+      "speaker": "A",
+      "start": 219.111,
+      "end": 229.425,
+      "text": "Let me summarize where we stand. We have finished the design review, we have a working prototype, and we are waiting on the security audit before we can ship the first release to customers."
+    },
+    {
+      "speaker": "B",
+      "start": 229.825,
+      "end": 242.632,
+      "text": "Let me add one point about the customers. A few of our largest accounts have asked for an early preview, and I believe giving them access now would generate useful feedback before the official launch."
+    },
+    {
+      "speaker": "A",
+      "start": 243.032,
+      "end": 255.039,
+      "text": "One thing I want to emphasize is documentation. If we do not write down our decisions, the next person who joins this project will spend weeks reconstructing what we already know, and that slows everyone down."
+    },
+    {
+      "speaker": "B",
+      "start": 255.439,
+      "end": 267.016,
+      "text": "I can own the rollout plan for the eastern region. I already have contacts there, and I understand the local constraints, so I can put together a draft by the end of the week."
+    },
+    {
+      "speaker": "A",
+      "start": 267.416,
+      "end": 277.967,
+      "text": "Could you take a look at the incident report from Tuesday? I want to understand why the backup job failed, and whether we need to change the alerting thresholds so we catch that kind of problem earlier."
+    },
+    {
+      "speaker": "B",
+      "start": 278.367,
+      "end": 289.665,
+      "text": "Before we close, I want to make sure we agree on the next steps. Who is responsible for the security audit, and what do you need from the rest of us to get it started?"
+    },
+    {
+      "speaker": "A",
+      "start": 290.065,
+      "end": 301.597,
+      "text": "Good morning everyone, thank you for joining today's planning session. Before we dive into the agenda, I want to review the progress we made last week and highlight a few open questions that still need answers."
+    },
+    {
+      "speaker": "B",
+      "start": 301.997,
+      "end": 316.238,
+      "text": "Thanks, that is a helpful summary. From my side, the engineering team has been focused on stability. We fixed the two most common crashes, and we are now measuring how often they occur in the field."
+    },
+    {
+      "speaker": "A",
+      "start": 316.638,
+      "end": 327.714,
+      "text": "The first item on our list is the rollout schedule. We have three regional teams, and each of them needs a clear timeline, a named owner, and a rollback plan in case something goes wrong during deployment."
+    },
+    {
+      "speaker": "B",
+      "start": 328.114,
+      "end": 340.805,
+      "text": "I have a concern about the timeline. If the audit does not start until next month, we will be testing and documenting at the same time, which historically has led to mistakes and rushed releases."
+    },
+    {
+      "speaker": "A",
+      "start": 341.205,
+      "end": 350.803,
+      "text": "I spoke with the finance group yesterday, and they confirmed the budget for the second quarter. That means we can move ahead with the hardware purchase without waiting for additional approvals."
+    },
+    {
+      "speaker": "B",
+      "start": 351.203,
+      "end": 363.743,
+      "text": "On the budget question, I think we should keep a reserve. Hardware prices have been moving around, and I would rather have room to absorb a surprise than come back asking for more money later."
+    },
+    {
+      "speaker": "A",
+      "start": 364.143,
+      "end": 374.457,
+      "text": "Let me summarize where we stand. We have finished the design review, we have a working prototype, and we are waiting on the security audit before we can ship the first release to customers."
+    },
+    {
+      "speaker": "B",
+      "start": 374.857,
+      "end": 387.664,
+      "text": "Let me add one point about the customers. A few of our largest accounts have asked for an early preview, and I believe giving them access now would generate useful feedback before the official launch."
+    },
+    {
+      "speaker": "A",
+      "start": 388.065,
+      "end": 400.071,
+      "text": "One thing I want to emphasize is documentation. If we do not write down our decisions, the next person who joins this project will spend weeks reconstructing what we already know, and that slows everyone down."
+    },
+    {
+      "speaker": "B",
+      "start": 400.471,
+      "end": 412.048,
+      "text": "I can own the rollout plan for the eastern region. I already have contacts there, and I understand the local constraints, so I can put together a draft by the end of the week."
+    },
+    {
+      "speaker": "A",
+      "start": 412.448,
+      "end": 423.0,
+      "text": "Could you take a look at the incident report from Tuesday? I want to understand why the backup job failed, and whether we need to change the alerting thresholds so we catch that kind of problem earlier."
+    },
+    {
+      "speaker": "B",
+      "start": 423.4,
+      "end": 434.697,
+      "text": "Before we close, I want to make sure we agree on the next steps. Who is responsible for the security audit, and what do you need from the rest of us to get it started?"
+    },
+    {
+      "speaker": "A",
+      "start": 435.098,
+      "end": 446.63,
+      "text": "Good morning everyone, thank you for joining today's planning session. Before we dive into the agenda, I want to review the progress we made last week and highlight a few open questions that still need answers."
+    },
+    {
+      "speaker": "B",
+      "start": 447.03,
+      "end": 461.27,
+      "text": "Thanks, that is a helpful summary. From my side, the engineering team has been focused on stability. We fixed the two most common crashes, and we are now measuring how often they occur in the field."
+    },
+    {
+      "speaker": "A",
+      "start": 461.67,
+      "end": 472.747,
+      "text": "The first item on our list is the rollout schedule. We have three regional teams, and each of them needs a clear timeline, a named owner, and a rollback plan in case something goes wrong during deployment."
+    },
+    {
+      "speaker": "B",
+      "start": 473.147,
+      "end": 485.838,
+      "text": "I have a concern about the timeline. If the audit does not start until next month, we will be testing and documenting at the same time, which historically has led to mistakes and rushed releases."
+    },
+    {
+      "speaker": "A",
+      "start": 486.238,
+      "end": 495.836,
+      "text": "I spoke with the finance group yesterday, and they confirmed the budget for the second quarter. That means we can move ahead with the hardware purchase without waiting for additional approvals."
+    },
+    {
+      "speaker": "B",
+      "start": 496.236,
+      "end": 508.776,
+      "text": "On the budget question, I think we should keep a reserve. Hardware prices have been moving around, and I would rather have room to absorb a surprise than come back asking for more money later."
+    },
+    {
+      "speaker": "A",
+      "start": 509.176,
+      "end": 519.49,
+      "text": "Let me summarize where we stand. We have finished the design review, we have a working prototype, and we are waiting on the security audit before we can ship the first release to customers."
+    },
+    {
+      "speaker": "B",
+      "start": 519.89,
+      "end": 532.697,
+      "text": "Let me add one point about the customers. A few of our largest accounts have asked for an early preview, and I believe giving them access now would generate useful feedback before the official launch."
+    },
+    {
+      "speaker": "A",
+      "start": 533.097,
+      "end": 545.104,
+      "text": "One thing I want to emphasize is documentation. If we do not write down our decisions, the next person who joins this project will spend weeks reconstructing what we already know, and that slows everyone down."
+    },
+    {
+      "speaker": "B",
+      "start": 545.504,
+      "end": 557.081,
+      "text": "I can own the rollout plan for the eastern region. I already have contacts there, and I understand the local constraints, so I can put together a draft by the end of the week."
+    },
+    {
+      "speaker": "A",
+      "start": 557.481,
+      "end": 568.032,
+      "text": "Could you take a look at the incident report from Tuesday? I want to understand why the backup job failed, and whether we need to change the alerting thresholds so we catch that kind of problem earlier."
+    },
+    {
+      "speaker": "B",
+      "start": 568.432,
+      "end": 579.73,
+      "text": "Before we close, I want to make sure we agree on the next steps. Who is responsible for the security audit, and what do you need from the rest of us to get it started?"
+    },
+    {
+      "speaker": "A",
+      "start": 580.13,
+      "end": 591.662,
+      "text": "Good morning everyone, thank you for joining today's planning session. Before we dive into the agenda, I want to review the progress we made last week and highlight a few open questions that still need answers."
+    },
+    {
+      "speaker": "B",
+      "start": 592.062,
+      "end": 606.303,
+      "text": "Thanks, that is a helpful summary. From my side, the engineering team has been focused on stability. We fixed the two most common crashes, and we are now measuring how often they occur in the field."
+    },
+    {
+      "speaker": "A",
+      "start": 606.703,
+      "end": 617.779,
+      "text": "The first item on our list is the rollout schedule. We have three regional teams, and each of them needs a clear timeline, a named owner, and a rollback plan in case something goes wrong during deployment."
+    },
+    {
+      "speaker": "B",
+      "start": 618.179,
+      "end": 630.87,
+      "text": "I have a concern about the timeline. If the audit does not start until next month, we will be testing and documenting at the same time, which historically has led to mistakes and rushed releases."
+    },
+    {
+      "speaker": "A",
+      "start": 631.27,
+      "end": 640.868,
+      "text": "I spoke with the finance group yesterday, and they confirmed the budget for the second quarter. That means we can move ahead with the hardware purchase without waiting for additional approvals."
+    },
+    {
+      "speaker": "B",
+      "start": 641.268,
+      "end": 653.808,
+      "text": "On the budget question, I think we should keep a reserve. Hardware prices have been moving around, and I would rather have room to absorb a surprise than come back asking for more money later."
+    },
+    {
+      "speaker": "A",
+      "start": 654.208,
+      "end": 664.522,
+      "text": "Let me summarize where we stand. We have finished the design review, we have a working prototype, and we are waiting on the security audit before we can ship the first release to customers."
+    },
+    {
+      "speaker": "B",
+      "start": 664.922,
+      "end": 677.73,
+      "text": "Let me add one point about the customers. A few of our largest accounts have asked for an early preview, and I believe giving them access now would generate useful feedback before the official launch."
+    },
+    {
+      "speaker": "A",
+      "start": 678.13,
+      "end": 690.136,
+      "text": "One thing I want to emphasize is documentation. If we do not write down our decisions, the next person who joins this project will spend weeks reconstructing what we already know, and that slows everyone down."
+    },
+    {
+      "speaker": "B",
+      "start": 690.536,
+      "end": 702.113,
+      "text": "I can own the rollout plan for the eastern region. I already have contacts there, and I understand the local constraints, so I can put together a draft by the end of the week."
+    },
+    {
+      "speaker": "A",
+      "start": 702.513,
+      "end": 713.065,
+      "text": "Could you take a look at the incident report from Tuesday? I want to understand why the backup job failed, and whether we need to change the alerting thresholds so we catch that kind of problem earlier."
+    },
+    {
+      "speaker": "B",
+      "start": 713.465,
+      "end": 724.763,
+      "text": "Before we close, I want to make sure we agree on the next steps. Who is responsible for the security audit, and what do you need from the rest of us to get it started?"
+    },
+    {
+      "speaker": "A",
+      "start": 725.163,
+      "end": 736.695,
+      "text": "Good morning everyone, thank you for joining today's planning session. Before we dive into the agenda, I want to review the progress we made last week and highlight a few open questions that still need answers."
+    },
+    {
+      "speaker": "B",
+      "start": 737.095,
+      "end": 751.335,
+      "text": "Thanks, that is a helpful summary. From my side, the engineering team has been focused on stability. We fixed the two most common crashes, and we are now measuring how often they occur in the field."
+    },
+    {
+      "speaker": "A",
+      "start": 751.735,
+      "end": 762.812,
+      "text": "The first item on our list is the rollout schedule. We have three regional teams, and each of them needs a clear timeline, a named owner, and a rollback plan in case something goes wrong during deployment."
+    },
+    {
+      "speaker": "B",
+      "start": 763.212,
+      "end": 775.903,
+      "text": "I have a concern about the timeline. If the audit does not start until next month, we will be testing and documenting at the same time, which historically has led to mistakes and rushed releases."
+    },
+    {
+      "speaker": "A",
+      "start": 776.303,
+      "end": 785.9,
+      "text": "I spoke with the finance group yesterday, and they confirmed the budget for the second quarter. That means we can move ahead with the hardware purchase without waiting for additional approvals."
+    },
+    {
+      "speaker": "B",
+      "start": 786.301,
+      "end": 798.841,
+      "text": "On the budget question, I think we should keep a reserve. Hardware prices have been moving around, and I would rather have room to absorb a surprise than come back asking for more money later."
+    },
+    {
+      "speaker": "A",
+      "start": 799.241,
+      "end": 809.555,
+      "text": "Let me summarize where we stand. We have finished the design review, we have a working prototype, and we are waiting on the security audit before we can ship the first release to customers."
+    },
+    {
+      "speaker": "B",
+      "start": 809.955,
+      "end": 822.762,
+      "text": "Let me add one point about the customers. A few of our largest accounts have asked for an early preview, and I believe giving them access now would generate useful feedback before the official launch."
+    },
+    {
+      "speaker": "A",
+      "start": 823.162,
+      "end": 835.169,
+      "text": "One thing I want to emphasize is documentation. If we do not write down our decisions, the next person who joins this project will spend weeks reconstructing what we already know, and that slows everyone down."
+    },
+    {
+      "speaker": "B",
+      "start": 835.569,
+      "end": 847.146,
+      "text": "I can own the rollout plan for the eastern region. I already have contacts there, and I understand the local constraints, so I can put together a draft by the end of the week."
+    },
+    {
+      "speaker": "A",
+      "start": 847.546,
+      "end": 858.097,
+      "text": "Could you take a look at the incident report from Tuesday? I want to understand why the backup job failed, and whether we need to change the alerting thresholds so we catch that kind of problem earlier."
+    },
+    {
+      "speaker": "B",
+      "start": 858.497,
+      "end": 869.795,
+      "text": "Before we close, I want to make sure we agree on the next steps. Who is responsible for the security audit, and what do you need from the rest of us to get it started?"
+    },
+    {
+      "speaker": "A",
+      "start": 870.195,
+      "end": 881.727,
+      "text": "Good morning everyone, thank you for joining today's planning session. Before we dive into the agenda, I want to review the progress we made last week and highlight a few open questions that still need answers."
+    },
+    {
+      "speaker": "B",
+      "start": 882.127,
+      "end": 896.368,
+      "text": "Thanks, that is a helpful summary. From my side, the engineering team has been focused on stability. We fixed the two most common crashes, and we are now measuring how often they occur in the field."
+    },
+    {
+      "speaker": "A",
+      "start": 896.768,
+      "end": 907.844,
+      "text": "The first item on our list is the rollout schedule. We have three regional teams, and each of them needs a clear timeline, a named owner, and a rollback plan in case something goes wrong during deployment."
+    },
+    {
+      "speaker": "B",
+      "start": 908.244,
+      "end": 920.935,
+      "text": "I have a concern about the timeline. If the audit does not start until next month, we will be testing and documenting at the same time, which historically has led to mistakes and rushed releases."
+    },
+    {
+      "speaker": "A",
+      "start": 921.335,
+      "end": 930.933,
+      "text": "I spoke with the finance group yesterday, and they confirmed the budget for the second quarter. That means we can move ahead with the hardware purchase without waiting for additional approvals."
+    },
+    {
+      "speaker": "B",
+      "start": 931.333,
+      "end": 943.873,
+      "text": "On the budget question, I think we should keep a reserve. Hardware prices have been moving around, and I would rather have room to absorb a surprise than come back asking for more money later."
+    },
+    {
+      "speaker": "A",
+      "start": 944.273,
+      "end": 954.587,
+      "text": "Let me summarize where we stand. We have finished the design review, we have a working prototype, and we are waiting on the security audit before we can ship the first release to customers."
+    },
+    {
+      "speaker": "B",
+      "start": 954.987,
+      "end": 967.794,
+      "text": "Let me add one point about the customers. A few of our largest accounts have asked for an early preview, and I believe giving them access now would generate useful feedback before the official launch."
+    },
+    {
+      "speaker": "A",
+      "start": 968.194,
+      "end": 980.201,
+      "text": "One thing I want to emphasize is documentation. If we do not write down our decisions, the next person who joins this project will spend weeks reconstructing what we already know, and that slows everyone down."
+    },
+    {
+      "speaker": "B",
+      "start": 980.601,
+      "end": 992.178,
+      "text": "I can own the rollout plan for the eastern region. I already have contacts there, and I understand the local constraints, so I can put together a draft by the end of the week."
+    },
+    {
+      "speaker": "A",
+      "start": 992.578,
+      "end": 1003.13,
+      "text": "Could you take a look at the incident report from Tuesday? I want to understand why the backup job failed, and whether we need to change the alerting thresholds so we catch that kind of problem earlier."
+    },
+    {
+      "speaker": "B",
+      "start": 1003.53,
+      "end": 1014.827,
+      "text": "Before we close, I want to make sure we agree on the next steps. Who is responsible for the security audit, and what do you need from the rest of us to get it started?"
+    },
+    {
+      "speaker": "A",
+      "start": 1015.227,
+      "end": 1026.76,
+      "text": "Good morning everyone, thank you for joining today's planning session. Before we dive into the agenda, I want to review the progress we made last week and highlight a few open questions that still need answers."
+    },
+    {
+      "speaker": "B",
+      "start": 1027.16,
+      "end": 1041.4,
+      "text": "Thanks, that is a helpful summary. From my side, the engineering team has been focused on stability. We fixed the two most common crashes, and we are now measuring how often they occur in the field."
+    },
+    {
+      "speaker": "A",
+      "start": 1041.8,
+      "end": 1052.877,
+      "text": "The first item on our list is the rollout schedule. We have three regional teams, and each of them needs a clear timeline, a named owner, and a rollback plan in case something goes wrong during deployment."
+    },
+    {
+      "speaker": "B",
+      "start": 1053.277,
+      "end": 1065.968,
+      "text": "I have a concern about the timeline. If the audit does not start until next month, we will be testing and documenting at the same time, which historically has led to mistakes and rushed releases."
+    },
+    {
+      "speaker": "A",
+      "start": 1066.368,
+      "end": 1075.966,
+      "text": "I spoke with the finance group yesterday, and they confirmed the budget for the second quarter. That means we can move ahead with the hardware purchase without waiting for additional approvals."
+    },
+    {
+      "speaker": "B",
+      "start": 1076.366,
+      "end": 1088.906,
+      "text": "On the budget question, I think we should keep a reserve. Hardware prices have been moving around, and I would rather have room to absorb a surprise than come back asking for more money later."
+    },
+    {
+      "speaker": "A",
+      "start": 1089.306,
+      "end": 1099.62,
+      "text": "Let me summarize where we stand. We have finished the design review, we have a working prototype, and we are waiting on the security audit before we can ship the first release to customers."
+    },
+    {
+      "speaker": "B",
+      "start": 1100.02,
+      "end": 1112.827,
+      "text": "Let me add one point about the customers. A few of our largest accounts have asked for an early preview, and I believe giving them access now would generate useful feedback before the official launch."
+    },
+    {
+      "speaker": "A",
+      "start": 1113.227,
+      "end": 1125.234,
+      "text": "One thing I want to emphasize is documentation. If we do not write down our decisions, the next person who joins this project will spend weeks reconstructing what we already know, and that slows everyone down."
+    },
+    {
+      "speaker": "B",
+      "start": 1125.634,
+      "end": 1137.211,
+      "text": "I can own the rollout plan for the eastern region. I already have contacts there, and I understand the local constraints, so I can put together a draft by the end of the week."
+    },
+    {
+      "speaker": "A",
+      "start": 1137.611,
+      "end": 1148.162,
+      "text": "Could you take a look at the incident report from Tuesday? I want to understand why the backup job failed, and whether we need to change the alerting thresholds so we catch that kind of problem earlier."
+    },
+    {
+      "speaker": "B",
+      "start": 1148.562,
+      "end": 1159.86,
+      "text": "Before we close, I want to make sure we agree on the next steps. Who is responsible for the security audit, and what do you need from the rest of us to get it started?"
+    },
+    {
+      "speaker": "A",
+      "start": 1160.26,
+      "end": 1171.792,
+      "text": "Good morning everyone, thank you for joining today's planning session. Before we dive into the agenda, I want to review the progress we made last week and highlight a few open questions that still need answers."
+    },
+    {
+      "speaker": "B",
+      "start": 1172.192,
+      "end": 1186.433,
+      "text": "Thanks, that is a helpful summary. From my side, the engineering team has been focused on stability. We fixed the two most common crashes, and we are now measuring how often they occur in the field."
+    },
+    {
+      "speaker": "A",
+      "start": 1186.833,
+      "end": 1197.909,
+      "text": "The first item on our list is the rollout schedule. We have three regional teams, and each of them needs a clear timeline, a named owner, and a rollback plan in case something goes wrong during deployment."
+    },
+    {
+      "speaker": "B",
+      "start": 1198.309,
+      "end": 1211.0,
+      "text": "I have a concern about the timeline. If the audit does not start until next month, we will be testing and documenting at the same time, which historically has led to mistakes and rushed releases."
+    }
+  ]
+}
