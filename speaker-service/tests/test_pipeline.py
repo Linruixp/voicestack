@@ -196,6 +196,57 @@ def test_known_and_unknown_segments_are_persisted(tmp_path: Path) -> None:
         assert wire["unknown_clusters"][0]["cluster_id"] == unknown.cluster_id
 
 
+class _RecordingEmbedder(FakeEmbedder):
+    """Counts ``embed_waveform`` calls so a guard can be proven, not assumed."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def embed_waveform(
+        self, waveform: np.ndarray, sample_rate: int = 16_000
+    ) -> FakeEmbedding:
+        self.calls += 1
+        return super().embed_waveform(waveform, sample_rate)
+
+
+def test_sub_window_segment_is_not_embedded_cluster_becomes_unknown(
+    tmp_path: Path,
+) -> None:
+    # Given: a meeting whose only segment (0.1 s) is shorter than the identity
+    # model's minimum viable window - the case that crashed matching on the
+    # 20-minute fixture before MIN_EMBED_SECONDS was raised above 0.1 s
+    audio = _write_wav(tmp_path / "short.wav", _block(0.2, 0.5))
+    embedder = _RecordingEmbedder()
+
+    def transcribe(path: Path) -> asr.Transcript:
+        return asr.Transcript(
+            language="en",
+            text="hi",
+            segments=(asr.Segment(start=0.0, end=0.1, text=" hi"),),
+        )
+
+    def diarize_audio(path: Path) -> list[diarize.SpeakerTurn]:
+        return [diarize.SpeakerTurn(start=0.0, end=0.1, speaker="SPEAKER_00")]
+
+    with open_registry(tmp_path / "registry.db") as registry:
+        # When: the pipeline runs
+        result = pipeline.transcribe_meeting(
+            audio,
+            "short",
+            registry=registry,
+            config=pipeline.PipelineConfig(
+                transcribe=transcribe, diarize=diarize_audio, embedder=embedder
+            ),
+        )
+
+    # Then: no embedding is attempted and the cluster is an unknown with a
+    # bodiless reason instead of raising mid-meeting
+    assert embedder.calls == 0
+    assert [item.speaker_id for item in result.segments] == ["unknown"]
+    assert len(result.unknown_clusters) == 1
+    assert result.unknown_clusters[0].reason == "cluster has no embeddable segment"
+
+
 def test_silent_audio_yields_empty_transcript_without_diarizing(
     tmp_path: Path,
 ) -> None:

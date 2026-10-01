@@ -40,7 +40,10 @@ if TYPE_CHECKING:
 UNKNOWN_SPEAKER = "unknown"
 NO_SPEECH_WARNING = "no speech detected; transcript is empty"
 # Segments shorter than this are not embedded (a cluster with none is unknown).
-MIN_EMBED_SECONDS = 0.1
+# WeSpeaker ResNet34 returns a non-finite embedding when the slice is too short
+# for its pooling window: measured, a 0.1 s slice (1600 samples @16k) is NaN
+# while ~0.105 s+ is finite; 0.2 s keeps margin so matching cannot crash.
+MIN_EMBED_SECONDS = 0.2
 
 
 class ClusterEmbedder(Protocol):
