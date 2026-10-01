@@ -13,12 +13,14 @@ dependencies = [
     "pyannote-audio==4.0.7",
     "pydantic==2.13.5",
     "pydantic-settings==2.15.0",
+    "python-multipart==0.0.20",
     "sqlite-vec==0.1.9",
     "uvicorn[standard]==0.54.0",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=9.1.1",
 ]
 

@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     # when more speakers are available. Override for experiments with
     # VASTACK_MATCH_THRESHOLD.
     match_threshold: float = 0.641
+    # When enabled, the uploaded copy of a meeting recording is deleted as
+    # soon as its transcription job reaches a terminal state (done or failed).
+    # Off by default so a failed job can be re-inspected.
+    delete_audio_after_transcribe: bool = False
 
     @property
     def hf_home(self) -> str:
