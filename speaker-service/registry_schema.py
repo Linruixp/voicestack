@@ -206,10 +206,11 @@ def _backup(conn: sqlite3.Connection, db_path: Path) -> Path:
 
 
 def _secure_dir(path: Path) -> None:
-    created = not path.exists()
     path.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if created:
-        os.chmod(path, 0o700)
+    # Enforce owner-only even when the directory pre-existed. Older installs
+    # (and macOS' own Application Support root) created the app-data dir 0755;
+    # the registry, backups and uploads must never be world-traversable.
+    os.chmod(path, 0o700)
 
 
 def _ensure_file_owner_only(path: Path) -> None:
