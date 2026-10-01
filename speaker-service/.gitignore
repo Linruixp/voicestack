@@ -8,3 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# On-demand launcher log (written by ~/voicestack/bin/vs-speaker-up.sh)
+.uvicorn.log
