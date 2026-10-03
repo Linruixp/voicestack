@@ -8,18 +8,21 @@ from api_auth import require_mutation_auth, require_read_auth
 from api_operations import (
     attach_voiceprint,
     enroll_new_speaker,
+    export_speaker,
     merge_speakers,
+    re_enroll,
     resolve_cluster_meeting,
     update_speaker,
 )
 from api_schemas import (
     EnrollRequest,
     MergeRequest,
+    ReEnrollRequest,
     SpeakerCreate,
     SpeakerPatch,
     VoiceprintAttach,
 )
-from api_service import speaker_payload
+from api_service import speaker_payload, speaker_sources
 from registry_models import RegistryError
 
 router = APIRouter(prefix="/speakers")
@@ -31,7 +34,9 @@ def list_speakers(request: Request) -> dict[str, object]:
         return {
             "speakers": [
                 speaker_payload(
-                    speaker, len(registry.voiceprints_for_speaker(speaker.id))
+                    speaker,
+                    len(registry.voiceprints_for_speaker(speaker.id)),
+                    consent=registry.latest_consent_for_speaker(speaker.id),
                 )
                 for speaker in registry.list_speakers()
             ]
@@ -42,7 +47,9 @@ def list_speakers(request: Request) -> dict[str, object]:
 def create_speaker(request: Request, body: SpeakerCreate) -> dict[str, object]:
     with request.app.state.registry_factory() as registry:
         try:
-            speaker_id = registry.add_speaker(body.name, body.organization, body.notes)
+            speaker_id = registry.add_speaker(
+                body.name, body.organization, body.notes, body.title
+            )
         except RegistryError as exc:
             raise HTTPException(400, str(exc)) from exc
         speaker = registry.get_speaker(speaker_id)
@@ -60,6 +67,7 @@ def enroll_speaker(request: Request, body: EnrollRequest) -> dict[str, object]:
             name=body.name,
             organization=body.organization,
             notes=body.notes,
+            title=body.title,
             cluster_id=body.cluster_id,
         )
 
@@ -78,6 +86,26 @@ def delete_speaker(request: Request, speaker_id: int) -> dict[str, object]:
         if not registry.delete_speaker(speaker_id):
             raise HTTPException(404, f"speaker {speaker_id} does not exist")
     return {"deleted": True, "speaker_id": speaker_id}
+
+
+@router.get("/{speaker_id}/export", dependencies=[Depends(require_read_auth)])
+def export_speaker_route(request: Request, speaker_id: int) -> dict[str, object]:
+    with request.app.state.registry_factory() as registry:
+        return export_speaker(registry, speaker_id)
+
+
+@router.get("/{speaker_id}/sources", dependencies=[Depends(require_read_auth)])
+def speaker_sources_route(request: Request, speaker_id: int) -> dict[str, object]:
+    with request.app.state.registry_factory() as registry:
+        return {"sources": speaker_sources(registry, speaker_id)}
+
+
+@router.post("/{speaker_id}/re-enroll", dependencies=[Depends(require_mutation_auth)])
+def re_enroll_speaker(
+    request: Request, speaker_id: int, body: ReEnrollRequest
+) -> dict[str, object]:
+    with request.app.state.registry_factory() as registry:
+        return re_enroll(registry, request.app.state.deps, speaker_id, body.cluster_id)
 
 
 @router.post(

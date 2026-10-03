@@ -9,12 +9,14 @@ Failures are structured JSON payloads with ``is_error=True`` - never a hang.
 from __future__ import annotations
 
 import json
+import os
+from collections.abc import Callable
 from functools import partial
 from typing import Any
 
-from anyio import to_thread
+from anyio import Event, create_task_group, move_on_after, to_thread
 from mcp import types
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import Context, MCPServer
 
 from mcp_proxy import BridgeError, ProxyConfig
 from service_client import ServiceClient
@@ -22,12 +24,16 @@ from service_client import ServiceClient
 SERVER_NAME = "vs-speaker"
 SERVER_VERSION = "0.1.0"
 
+PROGRESS_INTERVAL_S = float(os.environ.get("VASTACK_MCP_PROGRESS_INTERVAL", "20"))
+
 INSTRUCTIONS = (
     "VoiceStudio speaker-identity service (on-demand, loopback HTTP :3910). Each "
     "call starts the service via vs-speaker-up.sh when it is down and waits for "
     "/health before proxying. Use transcribe_meeting to transcribe a recording "
     "into speaker-labelled segments; list_speakers / enroll_speaker / "
     "attach_to_speaker / rename_speaker to manage the speaker directory; "
+    "rename_meeting to edit a meeting title; open_speaker_ui to open the naming "
+    "UI for a meeting; "
     "identify_speaker to match a clip; get_meeting to re-read a transcript."
 )
 
@@ -55,6 +61,50 @@ async def _dispatch(call: Any, /, **kwargs: Any) -> types.CallToolResult:
     return _ok(payload)
 
 
+async def _run_with_progress(
+    call: Callable[[], Any], ctx: Context, interval: float = PROGRESS_INTERVAL_S
+) -> types.CallToolResult:
+    """Run ``call`` in a worker thread, emitting progress heartbeats meanwhile.
+
+    Long transcriptions otherwise trip the client's 60s request timeout; each
+    heartbeat resets it (``resetTimeoutOnProgress``). Never raises, never hangs.
+    """
+    outcome: dict[str, Any] = {}
+    done = Event()
+
+    async def work() -> None:
+        try:
+            outcome["payload"] = await to_thread.run_sync(call)
+        except BridgeError as exc:
+            outcome["error"] = exc
+        except Exception as exc:  # noqa: BLE001 - boundary safety net must not hang
+            outcome["error"] = BridgeError(
+                "unexpected_error", f"{type(exc).__name__}: {exc}"
+            )
+        finally:
+            done.set()
+
+    async with create_task_group() as tg:
+        tg.start_soon(work)
+        elapsed = 0.0
+        while True:
+            with move_on_after(interval):
+                await done.wait()
+            if done.is_set():
+                break
+            elapsed += interval
+            try:
+                await ctx.report_progress(
+                    elapsed, None, f"transcribing… {elapsed:.0f}s elapsed"
+                )
+            except Exception:  # noqa: BLE001 - progress is best-effort; never fail
+                pass
+
+    if "error" in outcome:
+        return _error(outcome["error"])
+    return _ok(outcome["payload"])
+
+
 def build_server(client: ServiceClient | None = None) -> MCPServer:
     proxy = client or ServiceClient(ProxyConfig.from_env())
     server = MCPServer(
@@ -65,8 +115,10 @@ def build_server(client: ServiceClient | None = None) -> MCPServer:
         description="Transcribe a meeting recording (audio file path) and return "
         "its speaker-labelled segments. Cold-starts the service if needed."
     )
-    async def transcribe_meeting(file_path: str) -> types.CallToolResult:
-        return await _dispatch(proxy.transcribe_meeting, file_path=file_path)
+    async def transcribe_meeting(file_path: str, ctx: Context) -> types.CallToolResult:
+        return await _run_with_progress(
+            partial(proxy.transcribe_meeting, file_path=file_path), ctx
+        )
 
     @server.tool(
         description="List the enrolled speakers (id, name, organization, notes, "
@@ -121,6 +173,16 @@ def build_server(client: ServiceClient | None = None) -> MCPServer:
     @server.tool(description="Rename an existing speaker.")
     async def rename_speaker(speaker_id: int, name: str) -> types.CallToolResult:
         return await _dispatch(proxy.rename_speaker, speaker_id=speaker_id, name=name)
+
+    @server.tool(description="Rename an existing meeting (edits its title).")
+    async def rename_meeting(meeting_id: int, title: str) -> types.CallToolResult:
+        return await _dispatch(proxy.rename_meeting, meeting_id=meeting_id, title=title)
+
+    @server.tool(
+        description="Open the local speaker Web UI for a meeting (naming wizard)."
+    )
+    async def open_speaker_ui(meeting_id: int) -> types.CallToolResult:
+        return await _dispatch(proxy.open_speaker_ui, meeting_id=meeting_id)
 
     return server
 

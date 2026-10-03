@@ -25,7 +25,7 @@ from typing import Final
 
 import sqlite_vec
 
-SCHEMA_VERSION: Final = 1
+SCHEMA_VERSION: Final = 4
 VOICEPRINT_DIM: Final = 256
 BACKUP_DIR_NAME: Final = "backups"
 
@@ -118,6 +118,54 @@ CREATE TABLE IF NOT EXISTS schema_version (
 );
 """
 
+_V2_COLUMNS: Final = (
+    ("meetings", "topic", "TEXT"),
+    ("meetings", "location", "TEXT"),
+    ("meetings", "duration_s", "REAL"),
+    ("meetings", "summary_json", "TEXT"),
+    ("meetings", "original_title", "TEXT"),
+    ("speakers", "title", "TEXT"),
+)
+
+_SCHEMA_V3: Final = """
+CREATE TABLE IF NOT EXISTS speaker_batches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+    state TEXT NOT NULL DEFAULT 'open'
+        CHECK (state IN ('open', 'resolved', 'dismissed')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    resolved_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_speaker_batches_meeting
+    ON speaker_batches(meeting_id);
+
+CREATE TABLE IF NOT EXISTS batch_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id INTEGER NOT NULL REFERENCES speaker_batches(id) ON DELETE CASCADE,
+    cluster_id INTEGER NOT NULL UNIQUE REFERENCES clusters(id) ON DELETE CASCADE,
+    suggested_speaker_id INTEGER REFERENCES speakers(id) ON DELETE SET NULL,
+    similarity REAL,
+    resolution TEXT CHECK (resolution IN ('enrolled', 'attached', 'skipped')),
+    resolved_speaker_id INTEGER REFERENCES speakers(id) ON DELETE SET NULL,
+    resolved_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_batch_items_batch ON batch_items(batch_id);
+"""
+
+_SCHEMA_V4: Final = """
+CREATE TABLE IF NOT EXISTS enroll_consents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    speaker_id INTEGER NOT NULL REFERENCES speakers(id) ON DELETE CASCADE,
+    granted_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    purpose TEXT NOT NULL,
+    retention_until TEXT NOT NULL,
+    source_batch_id INTEGER REFERENCES speaker_batches(id) ON DELETE SET NULL,
+    revoked_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_enroll_consents_speaker
+    ON enroll_consents(speaker_id);
+"""
+
 
 class SchemaError(RuntimeError):
     """The registry database file could not be opened or migrated."""
@@ -141,7 +189,13 @@ def connect(db_path: Path) -> sqlite3.Connection:
         _load_vec(conn)
         version = current_version(conn)
         if version is None:
+            if _has_user_tables(conn):
+                _backup(conn, db_path)
             _apply_schema(conn)
+        elif version > SCHEMA_VERSION:
+            raise SchemaError(
+                f"registry schema v{version} is newer than supported v{SCHEMA_VERSION}"
+            )
         elif version < SCHEMA_VERSION:
             _backup(conn, db_path)
             _migrate(conn, version)
@@ -175,10 +229,36 @@ def _load_vec(conn: sqlite3.Connection) -> None:
 def _apply_schema(conn: sqlite3.Connection) -> None:
     with conn:
         conn.executescript(_SCHEMA_V1)
+    _add_missing_columns(conn)
+    _add_batch_tables(conn)
+    _add_consent_table(conn)
+    with conn:
         conn.execute(
             "INSERT OR IGNORE INTO schema_version(version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, _utc_now()),
         )
+
+
+def _add_batch_tables(conn: sqlite3.Connection) -> None:
+    with conn:
+        conn.executescript(_SCHEMA_V3)
+
+
+def _add_consent_table(conn: sqlite3.Connection) -> None:
+    with conn:
+        conn.executescript(_SCHEMA_V4)
+
+
+def _add_missing_columns(conn: sqlite3.Connection) -> None:
+    """Idempotently add the v2 columns, so a partial prior attempt self-heals."""
+    for table, column, decl in _V2_COLUMNS:
+        existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if not existing:
+            raise SchemaError(f"cannot migrate: table {table} is missing")
+        if column in existing:
+            continue
+        with conn:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
 
 
 def _utc_now() -> str:
@@ -187,14 +267,35 @@ def _utc_now() -> str:
 
 def _migrate(conn: sqlite3.Connection, from_version: int) -> None:
     if from_version < 1:
+        # A legacy/unstamped file: create the full current schema.
         _apply_schema(conn)
+        return
+    if from_version < 2:
+        _add_missing_columns(conn)
+    if from_version < 3:
+        _add_batch_tables(conn)
+    if from_version < 4:
+        _add_consent_table(conn)
+    with conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_version(version, applied_at) VALUES (?, ?)",
+            (SCHEMA_VERSION, _utc_now()),
+        )
+
+
+def _has_user_tables(conn: sqlite3.Connection) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table'"
+        " AND name NOT LIKE 'sqlite_%' LIMIT 1"
+    ).fetchone()
+    return row is not None
 
 
 def _backup(conn: sqlite3.Connection, db_path: Path) -> Path:
     """Consistent, timestamped copy of the database, taken before migrating."""
     directory = db_path.parent / BACKUP_DIR_NAME
     _secure_dir(directory)
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     target = directory / f"{db_path.stem}-{stamp}.db"
     destination = sqlite3.connect(target)
     try:

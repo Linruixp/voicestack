@@ -17,6 +17,23 @@ DATA="$(mktemp -d "${TMPDIR:-/tmp}/vs-ui-e2e-data.XXXXXX")"
 LOG="$EVID/uvicorn-e2e.log"
 mkdir -p "$EVID"
 
+# The 2-voice fixtures cannot reach the product handoff default (3 unknown
+# clusters), so lower it to 1: any unknown cluster opens a batch for the
+# deep-link wizard scenario.
+export VASTACK_HANDOFF_THRESHOLD=1
+
+# Synthesise a voice absent from the fixtures so the wizard upload still leaves
+# an unknown cluster after the earlier scenarios enrolled Alice.
+VS_WIZARD_AUDIO="$EVID/wizard-voice.wav"
+if command -v say >/dev/null 2>&1 && say -v Daniel -o "$VS_WIZARD_AUDIO" --data-format=LEI16@16000 \
+  "This is an entirely new speaker, never enrolled in this system before. Please confirm that the speaker naming wizard can resolve this unknown voice cluster from the transcript." 2>/dev/null; then
+  echo "== synthesised fresh wizard-voice fixture: $VS_WIZARD_AUDIO =="
+else
+  VS_WIZARD_AUDIO="$REPO/fixtures/audio/en_30s.wav"
+  echo "WARN: 'say' unavailable; wizard scenario falls back to $VS_WIZARD_AUDIO" >&2
+fi
+export VS_WIZARD_AUDIO
+
 cleanup() {
   pkill -f "uvicorn app:app --host 127.0.0.1 --port 3910" 2>/dev/null || true
 }

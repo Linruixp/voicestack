@@ -38,6 +38,12 @@
     <label>Meeting
       <select id="transcript-meeting" data-testid="transcript-meeting"></select>
     </label>
+    <audio id="transcript-audio" data-testid="transcript-audio" controls preload="none" hidden></audio>
+    <div id="transcript-intro" data-testid="transcript-intro" hidden>
+      <h3 id="transcript-title" data-testid="transcript-title" class="editable-title" title="Click to rename"></h3>
+      <p id="transcript-meta" data-testid="transcript-meta" class="meta"></p>
+      <p id="transcript-summary" data-testid="transcript-summary" class="summary">摘要尚未生成</p>
+    </div>
     <div id="transcript-body" data-testid="transcript-body"></div>
   </section>
 
@@ -51,9 +57,11 @@
       <form id="enroll-form">
         <label>Name <input type="text" id="enroll-name" data-testid="enroll-name" required></label>
         <label>Organization <input type="text" id="enroll-org" data-testid="enroll-org"></label>
+        <label>职务 <input type="text" id="enroll-title" data-testid="enroll-title"></label>
         <label>Notes <input type="text" id="enroll-notes" data-testid="enroll-notes"></label>
-        <button type="submit" data-testid="enroll-btn">Create speaker from cluster</button>
+        <button type="submit" id="enroll-btn" data-testid="enroll-btn">Create speaker from cluster</button>
       </form>
+      <p id="enroll-status" class="status" data-testid="enroll-status" aria-live="polite"></p>
     </fieldset>
 
     <fieldset>
@@ -90,19 +98,39 @@
   <section id="view-speakers" class="view" data-testid="view-speakers">
     <h2>Speaker directory</h2>
     <table>
-      <thead><tr><th>Name</th><th>Organization</th><th>Notes</th><th>Voiceprints</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Organization</th><th>职务</th><th>Notes</th><th>Voiceprints</th><th>同意 / 保留期</th><th></th></tr></thead>
       <tbody id="speaker-rows" data-testid="speaker-rows"></tbody>
     </table>
-    <p id="speaker-status" class="status" data-testid="speaker-status"></p>
+    <p id="speaker-status" class="status" data-testid="speaker-status" aria-live="polite"></p>
   </section>
 
   <!-- 5 · MEETING HISTORY -->
   <section id="view-meetings" class="view" data-testid="view-meetings">
     <h2>Meeting history</h2>
+    <form id="meeting-filters" class="filters">
+      <label>搜索 <input type="search" id="meeting-search" data-testid="meeting-search" placeholder="标题 / 摘要 / 转写"></label>
+      <label>参会人 <select id="meeting-filter-participant" data-testid="meeting-filter-participant"><option value="">全部</option></select></label>
+      <label>从 <input type="date" id="meeting-filter-from" data-testid="meeting-filter-from"></label>
+      <label>到 <input type="date" id="meeting-filter-to" data-testid="meeting-filter-to"></label>
+      <label class="inline"><input type="checkbox" id="meeting-filter-unresolved" data-testid="meeting-filter-unresolved"> 仅未确认说话人</label>
+      <button type="button" id="delete-all-meetings" data-testid="delete-all-meetings" class="danger">删除全部会议</button>
+    </form>
     <table>
       <thead><tr><th>Title</th><th>Date</th><th>Linked speakers</th><th></th></tr></thead>
       <tbody id="meeting-rows" data-testid="meeting-rows"></tbody>
     </table>
+    <p id="meeting-status" class="status" data-testid="meeting-status" aria-live="polite"></p>
+  </section>
+
+  <!-- 6 · SPEAKER NAMING WIZARD (deep-link view, deliberately NOT a nav tab) -->
+  <section id="view-wizard" class="view" data-testid="view-wizard" hidden>
+    <h2>说话人命名</h2>
+    <div class="wizard-head">
+      <span id="wizard-progress" data-testid="wizard-progress" aria-live="polite"></span>
+      <button type="button" id="wizard-exit" data-testid="wizard-exit" class="secondary">稍后继续</button>
+    </div>
+    <div id="wizard-card" data-testid="wizard-card"></div>
+    <p id="wizard-status" data-testid="wizard-status" class="status" aria-live="polite"></p>
   </section>
 </main>
 
@@ -117,6 +145,21 @@
       <button type="button" id="purge-cancel" data-testid="purge-cancel">Cancel</button>
       <button type="button" class="danger" id="purge-delete" data-testid="purge-delete">Delete &amp; purge</button>
     </menu>
+  </form>
+</dialog>
+
+<dialog id="reenroll-dialog" data-testid="reenroll-dialog">
+  <form id="reenroll-form">
+    <h3>重新登记声纹</h3>
+    <p id="reenroll-message" data-testid="reenroll-message"></p>
+    <label>从该说话人参与的会议片段中选择
+      <select id="reenroll-source" data-testid="reenroll-source"></select>
+    </label>
+    <menu>
+      <button type="button" id="reenroll-cancel" data-testid="reenroll-cancel">取消</button>
+      <button type="button" id="reenroll-confirm" data-testid="reenroll-confirm">重新登记</button>
+    </menu>
+    <p id="reenroll-status" class="status" data-testid="reenroll-status" aria-live="polite"></p>
   </form>
 </dialog>
 

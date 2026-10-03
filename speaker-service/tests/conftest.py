@@ -96,6 +96,8 @@ def fake_runner(path: Path, title: str, registry: Registry) -> pipeline.MeetingR
     second = registry.add_segment(
         meeting_id, NewSegment(1.0, 2.0, "world", None, cluster_id)
     )
+    batch_id = registry.create_speaker_batch(meeting_id)
+    registry.add_batch_item(batch_id, cluster_id)
     registry.update_job(job_id, JobState.DONE)
     return pipeline.MeetingResult(
         meeting_id=meeting_id,
@@ -119,12 +121,20 @@ def fake_runner(path: Path, title: str, registry: Registry) -> pipeline.MeetingR
             ),
         ),
         match_threshold=0.641,
+        batch_id=batch_id,
     )
 
 
 def fake_loader(path: Path) -> tuple[np.ndarray, int]:
     """One second of positive mono audio at the model sample rate."""
     return np.full(32_000, 0.5, dtype=np.float32), 16_000
+
+
+class FakeSummaryBackend:
+    """A deterministic summarizer; no Ollama needed."""
+
+    def generate(self, *, system: str, user: str) -> str:
+        return '{"tldr":"fake summary","decisions":[],"action_items":[],"chapters":[]}'
 
 
 @pytest.fixture
@@ -169,6 +179,7 @@ def make_app(
             embedder_factory=overrides.pop("embedder_factory", lambda: FakeEmbedder()),
             audio_loader=overrides.pop("audio_loader", fake_loader),
             read_token=overrides.pop("read_token", lambda: service_token),
+            summarizer=overrides.pop("summarizer", FakeSummaryBackend()),
             **overrides,
         )
 

@@ -11,10 +11,14 @@ import sqlite3
 import numpy as np
 
 from registry_models import (
+    BatchItem,
+    BatchState,
     InvalidEmbeddingError,
     Meeting,
     RegistryError,
     Speaker,
+    SpeakerBatch,
+    SpeakerConsent,
     StoredVoiceprint,
     VersionedVector,
 )
@@ -61,6 +65,7 @@ def speaker_from_row(row: sqlite3.Row) -> Speaker:
         organization=row["organization"],
         notes=row["notes"],
         created_at=str(row["created_at"]),
+        title=row["title"],
     )
 
 
@@ -71,6 +76,46 @@ def meeting_from_row(row: sqlite3.Row) -> Meeting:
         date=row["date"],
         audio_path=row["audio_path"],
         created_at=str(row["created_at"]),
+        topic=row["topic"],
+        location=row["location"],
+        duration_s=row["duration_s"],
+        summary_json=row["summary_json"],
+        original_title=row["original_title"],
+    )
+
+
+def consent_from_row(row: sqlite3.Row) -> SpeakerConsent:
+    return SpeakerConsent(
+        id=int(row["id"]),
+        speaker_id=int(row["speaker_id"]),
+        granted_at=str(row["granted_at"]),
+        purpose=str(row["purpose"]),
+        retention_until=str(row["retention_until"]),
+        source_batch_id=row["source_batch_id"],
+        revoked_at=row["revoked_at"],
+    )
+
+
+def batch_from_row(row: sqlite3.Row) -> SpeakerBatch:
+    return SpeakerBatch(
+        id=int(row["id"]),
+        meeting_id=int(row["meeting_id"]),
+        state=BatchState(row["state"]),
+        created_at=str(row["created_at"]),
+        resolved_at=row["resolved_at"],
+    )
+
+
+def batch_item_from_row(row: sqlite3.Row) -> BatchItem:
+    return BatchItem(
+        id=int(row["id"]),
+        batch_id=int(row["batch_id"]),
+        cluster_id=int(row["cluster_id"]),
+        suggested_speaker_id=row["suggested_speaker_id"],
+        similarity=row["similarity"],
+        resolution=row["resolution"],
+        resolved_speaker_id=row["resolved_speaker_id"],
+        resolved_at=row["resolved_at"],
     )
 
 

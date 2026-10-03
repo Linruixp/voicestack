@@ -7,7 +7,8 @@ header h1 { font-size: 16px; margin: 0; font-weight: 600; }
 .health { font-size: 12px; color: #86efac; }
 .health.down { color: #fca5a5; }
 nav { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px 20px 0; }
-nav button { border: 1px solid #d1d5db; background: #fff; padding: 8px 12px; cursor: pointer; border-radius: 6px 6px 0 0; font-size: 13px; }
+nav button { border: 1px solid #d1d5db; background: #fff; color: #1f2937; padding: 8px 12px; cursor: pointer; border-radius: 6px 6px 0 0; font-size: 13px; }
+nav button:hover { background: #f3f4f6; }
 nav button.active { background: #1f2937; color: #fff; border-color: #1f2937; }
 main { padding: 16px 20px 60px; }
 .view { display: none; }
@@ -35,3 +36,55 @@ th { background: #f3f4f6; font-size: 12px; }
 .cluster button { background: #b45309; border-color: #b45309; }
 dialog { border: 1px solid #d1d5db; border-radius: 8px; padding: 16px; max-width: 420px; }
 dialog menu { display: flex; gap: 8px; justify-content: flex-end; padding: 0; margin: 12px 0 0; }
+
+/* transcript intro header */
+#transcript-intro { border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; padding: 12px 14px; margin-bottom: 14px; }
+.editable-title { margin: 0 0 6px; font-size: 16px; color: #111827; cursor: pointer; }
+.editable-title:hover { text-decoration: underline dotted; }
+.title-input { font-size: 16px; font-weight: 600; width: 100%; }
+.meta { margin: 0 0 6px; font-size: 12px; color: #6b7280; }
+.summary { margin: 8px 0 0; font-size: 12px; color: #374151; }
+.summary .tldr { margin: 0 0 6px; color: #111827; }
+.summary-sec { margin: 0 0 6px; }
+.summary-sec ul { margin: 2px 0 0; padding-left: 18px; }
+.summary .ai-note { margin: 4px 0 0; font-size: 11px; color: #9ca3af; }
+#transcript-audio { width: 100%; margin: 0 0 12px; }
+.segment.active { background: #fff7ed; }
+.segment .text { cursor: text; }
+.segment-input { width: 100%; min-height: 40px; font: inherit; }
+#view-transcript.active { display: flex; flex-direction: column; height: calc(100vh - 132px); }
+#transcript-intro { flex: 0 0 auto; max-height: 34vh; overflow-y: auto; }
+#transcript-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.segment-scroll { flex: 1 1 auto; min-height: 80px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px 10px; background: #fff; }
+#transcript-clusters { flex: 0 0 auto; }
+button.link { background: none; border: none; color: #2563eb; cursor: pointer; padding: 0; font-size: 12px; }
+.speaker-0 { color: #1d4ed8; } .speaker-1 { color: #047857; } .speaker-2 { color: #b45309; }
+.speaker-3 { color: #7c3aed; } .speaker-4 { color: #be123c; } .speaker-5 { color: #0e7490; }
+.speaker-6 { color: #4d7c0f; } .speaker-7 { color: #a21caf; }
+#transcript-intro .wizard-cta { margin-top: 8px; }
+
+/* speaker naming wizard (deep-link view) */
+.wizard-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+#wizard-progress { font-size: 12px; color: #4b5563; font-variant-numeric: tabular-nums; }
+#wizard-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px; }
+.wizard-card-inner { display: flex; flex-direction: column; gap: 10px; }
+.wizard-cluster { font-size: 14px; font-weight: 600; color: #111827; }
+.wizard-sample { width: 100%; }
+.wizard-choice { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #374151; }
+.wizard-choice input[type="radio"] { margin: 0; }
+.wizard-fields { display: flex; flex-wrap: wrap; gap: 10px; }
+.wizard-fields input { min-width: 140px; }
+.wizard-nav { display: flex; gap: 8px; justify-content: flex-end; }
+.remember { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #111827; padding: 8px; border: 1px dashed #d1d5db; border-radius: 4px; background: #f9fafb; }
+.remember input { margin: 0; }
+.consent { margin: 0; font-size: 11px; color: #6b7280; line-height: 1.5; }
+
+.editable-title:focus { outline: 2px solid #2563eb; outline-offset: 2px; }
+.wizard-hint { font-size: 11px; color: #6b7280; }
+.muted { color: #9ca3af; }
+.badge { display: inline-block; padding: 0 6px; border-radius: 999px; font-size: 11px; }
+.badge.danger { background: #fee2e2; color: #b91c1c; }
+.filters { display: flex; gap: 12px; align-items: flex-end; margin: 0 0 10px; }
+.filters .inline { flex-direction: row; align-items: center; gap: 6px; }
+.group-row td { background: #f3f4f6; font-weight: 600; font-size: 12px; color: #374151; }
+

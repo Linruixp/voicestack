@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class _Strict(BaseModel):
@@ -13,6 +15,7 @@ class SpeakerCreate(_Strict):
     name: str
     organization: str | None = None
     notes: str | None = None
+    title: str | None = None
 
 
 class SpeakerPatch(_Strict):
@@ -21,6 +24,7 @@ class SpeakerPatch(_Strict):
     name: str | None = None
     organization: str | None = None
     notes: str | None = None
+    title: str | None = None
 
 
 class VoiceprintAttach(_Strict):
@@ -47,6 +51,21 @@ class EnrollRequest(_Strict):
     cluster_id: int
     organization: str | None = None
     notes: str | None = None
+    title: str | None = None
+
+
+class MeetingPatch(_Strict):
+    """Only fields present in the request body are applied."""
+
+    title: str | None = None
+    topic: str | None = None
+    location: str | None = None
+
+
+class SegmentPatch(_Strict):
+    """Inline correction of one transcript segment's text."""
+
+    text: str = Field(min_length=1, max_length=20_000)
 
 
 class MergeRequest(_Strict):
@@ -61,3 +80,25 @@ class SplitRequest(_Strict):
 
 class IdentifyRequest(_Strict):
     audio_path: str
+
+
+class ReEnrollRequest(_Strict):
+    """Re-register a speaker's voice from one diarized cluster."""
+
+    cluster_id: int
+
+
+class BatchResolveItem(_Strict):
+    """One decision for a pending cluster in a speaker batch."""
+
+    cluster_id: int
+    action: Literal["enroll", "attach", "skip"]
+    name: str | None = None
+    organization: str | None = None
+    title: str | None = None
+    speaker_id: int | None = None
+    remember: bool = False
+
+
+class BatchResolveRequest(_Strict):
+    items: list[BatchResolveItem]

@@ -11,6 +11,7 @@ reference to the target before dropping the duplicate.
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -18,7 +19,18 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+import numpy as np
+
 from registry import ClusterState, open_registry
+
+
+class _StaleVector:
+    """A voiceprint produced by a different (stale) model revision."""
+
+    model_id = "old-model"
+    revision = "old-revision"
+    dim = 256
+    vector = np.full(256, 0.1, dtype=np.float32)
 
 
 def test_patch_updates_only_the_provided_fields(
@@ -230,3 +242,217 @@ def test_merge_moves_every_reference_to_the_target(
         ).status_code
         == 404
     )
+
+
+def test_patch_speaker_accepts_job_title(
+    client: TestClient,
+    auth: dict[str, str],
+    create_speaker: Callable[..., dict[str, Any]],
+) -> None:
+    # Given: a speaker without a job title
+    speaker = create_speaker(client, "张三")
+
+    # When: a job title is patched
+    response = client.patch(
+        f"/speakers/{speaker['id']}", headers=auth, json={"title": "产品总监"}
+    )
+
+    # Then: it is returned and the other fields are untouched
+    assert response.status_code == 200
+    assert response.json()["title"] == "产品总监"
+    assert response.json()["name"] == "张三"
+
+
+def test_create_speaker_persists_job_title(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    # Given/When: a speaker is created directly with a job title
+    response = client.post(
+        "/speakers", headers=auth, json={"name": "李四", "title": "工程师"}
+    )
+
+    # Then: the title is returned and persisted
+    assert response.status_code == 201
+    assert response.json()["title"] == "工程师"
+
+
+def test_enroll_records_consent_and_exposes_retention(
+    client: TestClient,
+    auth: dict[str, str],
+    upload_meeting: Callable[..., dict[str, Any]],
+    db_path: Path,
+) -> None:
+    # Given: a meeting with an unknown cluster
+    meeting = upload_meeting(client)
+    cluster_id = meeting["unknown_clusters"][0]["cluster_id"]
+
+    # When: the cluster is enrolled as a new speaker (stores a voiceprint)
+    created = client.post(
+        "/speakers/enroll",
+        headers=auth,
+        json={"name": "王五", "cluster_id": cluster_id},
+    )
+
+    # Then: a consent record with a retention term exists and is exposed
+    assert created.status_code == 201, created.text
+    speaker = client.get("/speakers", headers=auth).json()["speakers"][0]
+    assert speaker["consent_granted_at"]
+    assert speaker["retention_until"]
+    assert speaker["consent_expired"] is False
+    with open_registry(db_path) as registry:
+        consents = registry.consents_for_speaker(speaker["id"])
+        assert len(consents) == 1 and consents[0].purpose == "enrollment"
+
+
+def test_enroll_same_cluster_twice_is_rejected(
+    client: TestClient,
+    auth: dict[str, str],
+    upload_meeting: Callable[..., dict[str, Any]],
+) -> None:
+    # Given: an unknown cluster already enrolled as a speaker
+    meeting = upload_meeting(client)
+    cluster_id = meeting["unknown_clusters"][0]["cluster_id"]
+    first = client.post(
+        "/speakers/enroll", headers=auth, json={"name": "A", "cluster_id": cluster_id}
+    )
+    assert first.status_code == 201
+
+    # When/Then: enrolling the same cluster again is refused (no duplicate speaker)
+    second = client.post(
+        "/speakers/enroll", headers=auth, json={"name": "B", "cluster_id": cluster_id}
+    )
+    assert second.status_code == 409
+    names = [
+        s["name"] for s in client.get("/speakers", headers=auth).json()["speakers"]
+    ]
+    assert names == ["A"]
+
+
+def test_export_speaker_returns_metadata_consents_and_vectors(
+    client: TestClient,
+    auth: dict[str, str],
+    upload_meeting: Callable[..., dict[str, Any]],
+) -> None:
+    # Given: an enrolled speaker (one voiceprint + consent)
+    meeting = upload_meeting(client)
+    cluster_id = meeting["unknown_clusters"][0]["cluster_id"]
+    created = client.post(
+        "/speakers/enroll",
+        headers=auth,
+        json={"name": "赵六", "cluster_id": cluster_id},
+    )
+    assert created.status_code == 201
+
+    # When: the speaker is exported
+    exported = client.get(
+        f"/speakers/{created.json()['speaker_id']}/export", headers=auth
+    )
+
+    # Then: metadata, consents and vector data are all present
+    assert exported.status_code == 200
+    body = exported.json()
+    assert body["speaker"]["name"] == "赵六"
+    assert len(body["consents"]) == 1
+    assert len(body["voiceprints"]) == 1
+    assert body["voiceprints"][0]["vector_base64"]
+    # And: the vector decodes to a 256-d float32 (1024 bytes)
+    raw = base64.b64decode(body["voiceprints"][0]["vector_base64"])
+    assert len(raw) == 256 * 4
+    # And: unknown speakers are 404
+    assert client.get("/speakers/999/export", headers=auth).status_code == 404
+
+
+def test_speaker_sources_and_re_enroll_from_source(
+    client: TestClient,
+    auth: dict[str, str],
+    upload_meeting: Callable[..., dict[str, Any]],
+) -> None:
+    # Given: a speaker enrolled from a meeting cluster
+    meeting = upload_meeting(client)
+    cluster_id = meeting["unknown_clusters"][0]["cluster_id"]
+    created = client.post(
+        "/speakers/enroll",
+        headers=auth,
+        json={"name": "源测试", "cluster_id": cluster_id},
+    ).json()
+
+    # Then: that cluster is listed as a re-enrollment source
+    sources = client.get(
+        f"/speakers/{created['speaker_id']}/sources", headers=auth
+    ).json()["sources"]
+    assert len(sources) == 1
+    assert sources[0]["cluster_id"] == cluster_id
+    assert sources[0]["meeting_id"] == meeting["meeting_id"]
+
+    # And: re-enrolling from the source succeeds
+    again = client.post(
+        f"/speakers/{created['speaker_id']}/re-enroll",
+        headers=auth,
+        json={"cluster_id": sources[0]["cluster_id"]},
+    )
+    assert again.status_code == 200
+    assert again.json()["voiceprint_id"] > 0
+
+
+def test_re_enroll_purges_stale_voiceprints_and_records_consent(
+    client: TestClient,
+    auth: dict[str, str],
+    upload_meeting: Callable[..., dict[str, Any]],
+    db_path: Path,
+) -> None:
+    # Given: an enrolled speaker plus one stale (other-model) voiceprint
+    meeting = upload_meeting(client)
+    cluster_id = meeting["unknown_clusters"][0]["cluster_id"]
+    created = client.post(
+        "/speakers/enroll",
+        headers=auth,
+        json={"name": "钱七", "cluster_id": cluster_id},
+    )
+    speaker_id = created.json()["speaker_id"]
+    with open_registry(db_path) as registry:
+        registry.add_voiceprint(speaker_id, _StaleVector())
+        assert len(registry.voiceprints_for_speaker(speaker_id)) == 2
+    other = upload_meeting(client, title="Second")
+
+    # When: the speaker is re-enrolled from the second cluster
+    again = client.post(
+        f"/speakers/{speaker_id}/re-enroll",
+        headers=auth,
+        json={"cluster_id": other["unknown_clusters"][0]["cluster_id"]},
+    )
+
+    # Then: the stale print is purged, current-model prints survive, consent recorded
+    assert again.status_code == 200, again.text
+    assert again.json()["voiceprint_id"] > 0
+    with open_registry(db_path) as registry:
+        prints = registry.voiceprints_for_speaker(speaker_id)
+        assert all(item.model_id != "old-model" for item in prints)
+        assert len(prints) == 2
+        purposes = [c.purpose for c in registry.consents_for_speaker(speaker_id)]
+        assert purposes == ["enrollment", "re-enroll"]
+
+
+def test_speaker_payload_flags_expired_retention(
+    client: TestClient,
+    auth: dict[str, str],
+    upload_meeting: Callable[..., dict[str, Any]],
+    db_path: Path,
+) -> None:
+    # Given: an enrolled speaker whose latest consent retention is in the past
+    meeting = upload_meeting(client)
+    cluster_id = meeting["unknown_clusters"][0]["cluster_id"]
+    created = client.post(
+        "/speakers/enroll",
+        headers=auth,
+        json={"name": "吴十", "cluster_id": cluster_id},
+    )
+    with open_registry(db_path) as registry:
+        registry.add_consent(
+            created.json()["speaker_id"],
+            purpose="enrollment",
+            retention_until="2000-01-01T00:00:00+00:00",
+        )
+
+    # Then: the directory payload flags the retention as expired
+    speaker = client.get("/speakers", headers=auth).json()["speakers"][0]
+    assert speaker["consent_expired"] is True

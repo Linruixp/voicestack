@@ -8,23 +8,42 @@ it is the readiness probe used by the launchers and the UI keepalive.
 
 from __future__ import annotations
 
+import mimetypes
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.concurrency import run_in_threadpool
 from pydantic import ValidationError
 from starlette.datastructures import UploadFile as FormUploadFile
+from starlette.responses import FileResponse
 
 import asr
 from api_auth import require_mutation_auth, require_read_auth
-from api_operations import split_cluster
-from api_schemas import IdentifyRequest, SplitRequest
+from api_operations import (
+    cluster_sample,
+    split_cluster,
+    update_meeting,
+    update_segment,
+)
+from api_schemas import IdentifyRequest, MeetingPatch, SegmentPatch, SplitRequest
+from registry_models import MeetingNotFoundError
+from summarizer import summarize_meeting
 from api_service import (
     ServiceDeps,
     identify_audio,
     job_payload,
+    list_meeting_rows,
     meeting_detail,
-    meeting_payload,
+    meeting_result_payload,
     run_meeting,
     save_upload,
 )
@@ -92,10 +111,24 @@ def health() -> dict[str, str]:
 
 
 @router.get("/meetings", dependencies=[Depends(require_read_auth)])
-def list_meetings(request: Request) -> dict[str, object]:
+def list_meetings(
+    request: Request,
+    q: str | None = None,
+    unresolved: bool = False,
+    participant_id: int | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> dict[str, object]:
     with request.app.state.registry_factory() as registry:
         return {
-            "meetings": [meeting_payload(item) for item in registry.list_meetings()]
+            "meetings": list_meeting_rows(
+                registry,
+                q=q,
+                unresolved=unresolved,
+                participant_id=participant_id,
+                date_from=date_from,
+                date_to=date_to,
+            )
         }
 
 
@@ -116,7 +149,8 @@ def upload_meeting(
     path = save_upload(deps.settings.data_dir / "uploads", file.filename, content)
     try:
         with request.app.state.registry_factory() as registry:
-            return run_meeting(registry, deps, path, title or path.stem).to_dict()
+            result = run_meeting(registry, deps, path, title or path.stem)
+        return meeting_result_payload(result, deps.settings)
     except asr.InvalidAudioError as exc:
         # Pre-transcription failure: the pipeline rolled back its meeting and
         # job, so only the upload is left to remove.
@@ -127,7 +161,46 @@ def upload_meeting(
 @router.get("/meetings/{meeting_id}", dependencies=[Depends(require_read_auth)])
 def get_meeting(request: Request, meeting_id: int) -> dict[str, object]:
     with request.app.state.registry_factory() as registry:
-        return meeting_detail(registry, meeting_id)
+        detail = meeting_detail(registry, meeting_id)
+    batch_id = detail["handoff"]["batch_id"]
+    detail["handoff"]["threshold"] = request.app.state.settings.handoff_threshold
+    if batch_id is not None:
+        base = request.app.state.settings.resolved_ui_base_url
+        detail["ui_url"] = (
+            f"{base}/?meeting={meeting_id}&task=speakers&batch={batch_id}"
+        )
+    else:
+        detail["ui_url"] = None
+    return detail
+
+
+@router.patch("/meetings/{meeting_id}", dependencies=[Depends(require_mutation_auth)])
+def patch_meeting(
+    request: Request, meeting_id: int, body: MeetingPatch
+) -> dict[str, object]:
+    with request.app.state.registry_factory() as registry:
+        return update_meeting(registry, meeting_id, body.model_dump(exclude_unset=True))
+
+
+@router.post(
+    "/meetings/{meeting_id}/summary",
+    dependencies=[Depends(require_mutation_auth)],
+)
+async def generate_summary(request: Request, meeting_id: int) -> dict[str, object]:
+    deps = _deps(request)
+    if deps.summarizer is None:
+        raise HTTPException(503, "summarizer is not configured")
+
+    def work() -> dict[str, object]:
+        with request.app.state.registry_factory() as registry:
+            return summarize_meeting(registry, meeting_id, deps.summarizer)
+
+    try:
+        return await run_in_threadpool(work)
+    except MeetingNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except (OSError, ValueError) as exc:
+        raise HTTPException(502, f"summarizer failed: {exc}") from exc
 
 
 @router.post(
@@ -139,6 +212,61 @@ def split_meeting_cluster(
 ) -> dict[str, object]:
     with request.app.state.registry_factory() as registry:
         return split_cluster(registry, meeting_id, cluster_id, body.at)
+
+
+@router.get("/clusters/{cluster_id}/sample", dependencies=[Depends(require_read_auth)])
+def cluster_audio_sample(request: Request, cluster_id: int) -> Response:
+    with request.app.state.registry_factory() as registry:
+        data = cluster_sample(registry, _deps(request), cluster_id)
+    return Response(content=data, media_type="audio/wav")
+
+
+@router.get("/meetings/{meeting_id}/audio", dependencies=[Depends(require_read_auth)])
+def stream_meeting_audio(request: Request, meeting_id: int) -> FileResponse:
+    with request.app.state.registry_factory() as registry:
+        meeting = registry.get_meeting(meeting_id)
+    if meeting is None:
+        raise HTTPException(404, f"meeting {meeting_id} does not exist")
+    if not meeting.audio_path or not Path(meeting.audio_path).is_file():
+        raise HTTPException(404, "meeting audio is unavailable")
+    media = mimetypes.guess_type(meeting.audio_path)[0] or "audio/mpeg"
+    return FileResponse(meeting.audio_path, media_type=media)
+
+
+@router.patch(
+    "/meetings/{meeting_id}/segments/{segment_id}",
+    dependencies=[Depends(require_mutation_auth)],
+)
+def patch_segment(
+    request: Request, meeting_id: int, segment_id: int, body: SegmentPatch
+) -> dict[str, object]:
+    with request.app.state.registry_factory() as registry:
+        return update_segment(registry, meeting_id, segment_id, body.text)
+
+
+@router.delete("/meetings", dependencies=[Depends(require_mutation_auth)])
+def delete_all_meetings(request: Request) -> dict[str, object]:
+    with request.app.state.registry_factory() as registry:
+        meetings = registry.list_meetings()
+        paths = [item.audio_path for item in meetings if item.audio_path]
+        for meeting in meetings:
+            registry.delete_meeting(meeting.id)
+    for path in paths:
+        Path(path).unlink(missing_ok=True)
+    return {"deleted": len(meetings)}
+
+
+@router.delete("/meetings/{meeting_id}", dependencies=[Depends(require_mutation_auth)])
+def delete_meeting(request: Request, meeting_id: int) -> dict[str, object]:
+    with request.app.state.registry_factory() as registry:
+        meeting = registry.get_meeting(meeting_id)
+        if meeting is None:
+            raise HTTPException(404, f"meeting {meeting_id} does not exist")
+        audio_path = meeting.audio_path
+        registry.delete_meeting(meeting_id)
+    if audio_path:
+        Path(audio_path).unlink(missing_ok=True)
+    return {"deleted": True, "meeting_id": meeting_id}
 
 
 @router.get("/jobs/{job_id}", dependencies=[Depends(require_read_auth)])

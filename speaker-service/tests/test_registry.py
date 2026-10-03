@@ -292,3 +292,93 @@ def test_deleting_speaker_resets_linked_clusters_to_unknown(db_path: Path) -> No
         assert cluster.id == cluster_id
         assert cluster.state is ClusterState.UNKNOWN
         assert cluster.label is None
+
+
+def test_update_meeting_edits_fields_and_preserves_original_title(
+    db_path: Path,
+) -> None:
+    # Given: a meeting created with a title
+    with open_registry(db_path) as registry:
+        meeting_id = registry.create_meeting("recording", audio_path="/a.m4a")
+        # Then: the creation title is captured as the original
+        assert registry.get_meeting(meeting_id).original_title == "recording"
+        # When: the title is edited
+        assert registry.update_meeting(meeting_id, title="Weekly sync") is True
+        updated = registry.get_meeting(meeting_id)
+        # Then: the new title wins and the original is retained
+        assert updated.title == "Weekly sync"
+        assert updated.original_title == "recording"
+        # And: metadata can be set independently
+        assert (
+            registry.update_meeting(
+                meeting_id, location="Room 3", topic="Roadmap", duration_s=901.5
+            )
+            is True
+        )
+        fetched = registry.get_meeting(meeting_id)
+        assert fetched.location == "Room 3"
+        assert fetched.topic == "Roadmap"
+        assert fetched.duration_s == pytest.approx(901.5)
+
+
+def test_update_segment_text_only_changes_text(db_path: Path) -> None:
+    with open_registry(db_path) as registry:
+        meeting_id = registry.create_meeting("M")
+        segment_id = registry.add_segment(
+            meeting_id, NewSegment(0.0, 1.0, "old", None, None)
+        )
+        # Then: the update succeeds and leaves timing/identity untouched
+        assert registry.update_segment_text(segment_id, "new") is True
+        segment = registry.segments_for_meeting(meeting_id)[0]
+        assert (segment.text, segment.start, segment.end) == ("new", 0.0, 1.0)
+        # And: an unknown id reports no change
+        assert registry.update_segment_text(999, "x") is False
+
+
+def test_update_meeting_unknown_id_returns_false(db_path: Path) -> None:
+    # Given: a registry with no such meeting
+    with open_registry(db_path) as registry:
+        # When/Then: updating an unknown id reports no change
+        assert registry.update_meeting(999, title="x") is False
+
+
+def test_search_meetings_filters_by_text_participant_date_and_unresolved(
+    db_path: Path,
+) -> None:
+    # Given: three meetings differing by transcript, participant and cluster state
+    with open_registry(db_path) as registry:
+        alice = registry.add_speaker("Alice")
+        a = registry.create_meeting("规划会", date="2026-10-01")
+        b = registry.create_meeting("Retro", date="2026-09-01")
+        c = registry.create_meeting("闲聊", date="2026-10-05")
+        registry.add_segment(a, NewSegment(0.0, 1.0, "讨论项目进度", None, None))
+        registry.add_segment(b, NewSegment(0.0, 1.0, "nothing here", None, None))
+        unknown_cluster = registry.add_cluster(c)
+        registry.add_meeting_speaker(
+            ClusterLink(meeting_id=c, cluster_id=unknown_cluster)
+        )
+        named_cluster = registry.add_cluster(a, state=ClusterState.NAMED)
+        registry.add_meeting_speaker(
+            ClusterLink(meeting_id=a, cluster_id=named_cluster, speaker_id=alice)
+        )
+        # Then: substring search matches transcript and title
+        assert [m.id for m in registry.search_meetings(q="项目")] == [a]
+        assert [m.id for m in registry.search_meetings(q="Retro")] == [b]
+        # And: participant, date-range and unresolved filters compose
+        assert [m.id for m in registry.search_meetings(participant_id=alice)] == [a]
+        assert {m.id for m in registry.search_meetings(date_from="2026-10-01")} == {
+            a,
+            c,
+        }
+        assert [m.id for m in registry.search_meetings(unresolved=True)] == [c]
+        assert [m.id for m in registry.search_meetings(q="a", unresolved=True)] == []
+
+
+def test_search_meetings_treats_wildcards_literally(db_path: Path) -> None:
+    # Given: a meeting whose title contains a literal percent sign
+    with open_registry(db_path) as registry:
+        hit = registry.create_meeting("完成度50%达标")
+        registry.create_meeting("无关会议")
+        # Then: '%' is literal, not a match-everything wildcard
+        assert [m.id for m in registry.search_meetings(q="50%")] == [hit]
+        assert [m.id for m in registry.search_meetings(q="%")] == [hit]

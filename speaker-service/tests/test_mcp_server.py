@@ -3,7 +3,7 @@
 Given: the MCP server spawned over stdio with the launcher disabled or a dead
 port, or a call whose file argument does not exist.
 When: tools are listed, or a tool is called.
-Then: exactly the seven tools are advertised, and failures are structured MCP
+Then: exactly the nine tools are advertised, and failures are structured MCP
 errors (``is_error`` + JSON code) returned promptly - never a hang.
 """
 
@@ -22,6 +22,11 @@ from mcp import StdioServerParameters
 from mcp.client.session import ClientSession
 from mcp.client.stdio import stdio_client
 
+# pytest is configured with ``pythonpath = ["."]`` (pyproject.toml), so the
+# service root is already on sys.path; the module under test imports directly.
+import mcp_server  # noqa: E402
+from mcp_proxy import BridgeError  # noqa: E402
+
 SERVER = str(Path(__file__).resolve().parent.parent / "mcp_server.py")
 
 EXPECTED_TOOLS = {
@@ -32,6 +37,8 @@ EXPECTED_TOOLS = {
     "identify_speaker",
     "get_meeting",
     "rename_speaker",
+    "rename_meeting",
+    "open_speaker_ui",
 }
 
 # Dead-port env: skip the launcher so the failure is an immediate reachability
@@ -70,7 +77,7 @@ def error_payload(result: Any) -> dict[str, Any]:
     return json.loads(result.content[0].text)
 
 
-def test_tools_list_returns_the_seven_tools() -> None:
+def test_tools_list_returns_the_expected_tools() -> None:
     async def run() -> set[str]:
         async with mcp_session() as session:
             result = await session.list_tools()
@@ -107,3 +114,67 @@ def test_dead_port_is_a_structured_error_not_a_hang() -> None:
     assert payload["ok"] is False
     assert payload["error"]["code"] == "service_unreachable"
     assert elapsed < 20, f"dead-port error took {elapsed:.1f}s (structured, not a hang)"
+
+
+class FakeCtx:
+    def __init__(self) -> None:
+        self.progress: list[tuple] = []
+
+    async def report_progress(
+        self, progress: float, total: float | None = None, message: str | None = None
+    ) -> None:
+        self.progress.append((progress, total, message))
+
+
+def test_progress_heartbeat_is_emitted_while_call_runs() -> None:
+    def slow_call() -> dict[str, str]:
+        time.sleep(0.35)
+        return {"transcript": "ok"}
+
+    async def run() -> tuple[FakeCtx, Any]:
+        ctx = FakeCtx()
+        result = await mcp_server._run_with_progress(slow_call, ctx, interval=0.1)
+        return ctx, result
+
+    ctx, result = asyncio.run(run())
+    assert result.is_error is not True
+    assert json.loads(result.content[0].text) == {"transcript": "ok"}
+    assert len(ctx.progress) >= 3
+
+
+def test_progress_helper_maps_bridge_error_to_structured_error() -> None:
+    def failing_call() -> None:
+        raise BridgeError("boom", "nope")
+
+    async def run() -> Any:
+        return await mcp_server._run_with_progress(
+            failing_call, FakeCtx(), interval=0.1
+        )
+
+    result = asyncio.run(run())
+    assert result.is_error is True
+    assert json.loads(result.content[0].text)["error"]["code"] == "boom"
+
+
+def test_progress_helper_swallows_progress_errors() -> None:
+    class ExplodingCtx:
+        async def report_progress(
+            self,
+            progress: float,
+            total: float | None = None,
+            message: str | None = None,
+        ) -> None:
+            raise RuntimeError("client sent no progress token")
+
+    def slow_call() -> dict[str, str]:
+        time.sleep(0.25)
+        return {"transcript": "ok"}
+
+    async def run() -> Any:
+        return await mcp_server._run_with_progress(
+            slow_call, ExplodingCtx(), interval=0.1
+        )
+
+    result = asyncio.run(run())
+    assert result.is_error is not True
+    assert json.loads(result.content[0].text) == {"transcript": "ok"}

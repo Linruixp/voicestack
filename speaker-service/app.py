@@ -15,11 +15,13 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
+from typing import Any
 
 import config
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 
+import api_batch_routes
 import api_routes
 import api_speaker_routes
 import ui
@@ -37,12 +39,16 @@ from api_service import (
 from config import Settings, get_settings
 from idle import ActivityTracker, IdleWatchdog, terminate_process
 from registry import Registry, open_registry
+from summarizer import OllamaBackend
 
 
 def _jobs_active(registry_factory: Callable[[], Registry]) -> bool:
     """Read the durable jobs table for a queued/running job (watchdog check)."""
     with registry_factory() as registry:
         return registry.has_active_jobs()
+
+
+_UNSET: Any = object()
 
 
 def create_app(
@@ -53,6 +59,7 @@ def create_app(
     embedder_factory: Callable[[], Embedder] = default_embedder_factory,
     audio_loader: AudioLoader = load_audio,
     read_token: Callable[[], str | None] | None = None,
+    summarizer: Any = _UNSET,
     enable_idle_watchdog: bool = True,
 ) -> FastAPI:
     resolved = settings if settings is not None else get_settings()
@@ -101,9 +108,19 @@ def create_app(
         embedder=LazyEmbedder(embedder_factory),
         audio_loader=audio_loader,
         settings=resolved,
+        summarizer=(
+            OllamaBackend(
+                resolved.ollama_base_url,
+                resolved.summary_model,
+                resolved.summary_timeout_s,
+            )
+            if summarizer is _UNSET
+            else summarizer
+        ),
     )
     app.include_router(ui.router)
     app.include_router(api_routes.router)
+    app.include_router(api_batch_routes.router)
     app.include_router(api_speaker_routes.router)
     app.mount("/static", StaticFiles(directory=ui.STATIC_DIR), name="static")
 

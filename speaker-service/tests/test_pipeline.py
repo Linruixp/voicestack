@@ -267,6 +267,69 @@ def test_silent_audio_yields_empty_transcript_without_diarizing(
         assert registry.get_job(result.job_id).state is JobState.DONE
 
 
+def test_handoff_batch_created_when_unknowns_meet_threshold(tmp_path: Path) -> None:
+    # Given: a two-second meeting with unknown clusters and threshold 1
+    audio = _write_wav(tmp_path / "meeting.wav", _block(1.0, 0.5) + _block(1.0, -0.5))
+    with open_registry(tmp_path / "registry.db") as registry:
+        result = pipeline.transcribe_meeting(
+            audio,
+            "Standup",
+            registry=registry,
+            config=pipeline.PipelineConfig(
+                transcribe=_fake_transcriber(),
+                diarize=_fake_diarizer(),
+                embedder=FakeEmbedder(),
+                handoff_threshold=1,
+            ),
+        )
+        # Then: a batch is persisted and open for the meeting
+        assert result.batch_id is not None
+        batch = registry.get_speaker_batch(result.batch_id)
+        assert batch is not None and batch.meeting_id == result.meeting_id
+        assert registry.open_batch_for_meeting(result.meeting_id).id == result.batch_id
+
+
+def test_no_batch_when_below_threshold(tmp_path: Path) -> None:
+    # Given: the same meeting but a threshold above the unknown count
+    audio = _write_wav(tmp_path / "meeting.wav", _block(1.0, 0.5) + _block(1.0, -0.5))
+    with open_registry(tmp_path / "registry.db") as registry:
+        result = pipeline.transcribe_meeting(
+            audio,
+            "Standup",
+            registry=registry,
+            config=pipeline.PipelineConfig(
+                transcribe=_fake_transcriber(),
+                diarize=_fake_diarizer(),
+                embedder=FakeEmbedder(),
+                handoff_threshold=99,
+            ),
+        )
+        # Then: no batch is created
+        assert result.batch_id is None
+
+
+def test_transcribe_persists_meeting_date_and_duration(tmp_path: Path) -> None:
+    # Given: a two-second synthetic meeting run with deterministic fake stages
+    audio = _write_wav(tmp_path / "meeting.wav", _block(1.0, 0.5) + _block(1.0, -0.5))
+    with open_registry(tmp_path / "registry.db") as registry:
+        result = pipeline.transcribe_meeting(
+            audio,
+            "Standup",
+            registry=registry,
+            config=pipeline.PipelineConfig(
+                transcribe=_fake_transcriber(),
+                diarize=_fake_diarizer(),
+                embedder=FakeEmbedder(),
+            ),
+        )
+        meeting = registry.get_meeting(result.meeting_id)
+        segments = registry.segments_for_meeting(result.meeting_id)
+        # Then: the date comes from the file mtime and the duration is the last end
+        assert meeting.date
+        assert meeting.duration_s == pytest.approx(max(item.end for item in segments))
+        assert meeting.original_title == "Standup"
+
+
 def test_failure_marks_job_failed_and_reraises(tmp_path: Path) -> None:
     # Given: a transcriber that fails
     audio = _write_wav(tmp_path / "meeting.wav", b"\x00\x00" * SAMPLE_RATE)

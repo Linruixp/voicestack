@@ -148,6 +148,40 @@ def test_upload_creates_meeting_job_and_transcript_view(
     assert client.get("/jobs/999", headers=auth).status_code == 404
 
 
+def test_patch_meeting_edits_title_and_metadata(
+    client: TestClient, auth: dict[str, str], upload_meeting: Callable[..., dict]
+) -> None:
+    # Given: a persisted meeting whose title defaulted from the upload
+    meeting_id = upload_meeting(client, title="Standup")["meeting_id"]
+
+    # When: the title and metadata are patched
+    response = client.patch(
+        f"/meetings/{meeting_id}",
+        headers=auth,
+        json={"title": "Weekly sync", "location": "Room 3", "topic": "Roadmap"},
+    )
+
+    # Then: the payload reflects the edits and retains the original title
+    assert response.status_code == 200
+    body = response.json()
+    assert body["title"] == "Weekly sync"
+    assert body["location"] == "Room 3"
+    assert body["topic"] == "Roadmap"
+    assert body["original_title"] == "Standup"
+
+    # And: unknown ids are 404 and a blank title is refused
+    assert (
+        client.patch("/meetings/999", headers=auth, json={"title": "x"}).status_code
+        == 404
+    )
+    assert (
+        client.patch(
+            f"/meetings/{meeting_id}", headers=auth, json={"title": "  "}
+        ).status_code
+        == 400
+    )
+
+
 @pytest.mark.parametrize("delete_after", [True, False], ids=["switch-on", "switch-off"])
 def test_uploaded_audio_is_deleted_after_job_only_when_enabled(
     make_app: Callable[..., FastAPI],
@@ -173,6 +207,12 @@ def test_uploaded_audio_is_deleted_after_job_only_when_enabled(
     assert response.status_code == 201
     audio = Path(response.json()["audio_path"])
     assert audio.exists() is not delete_after
+    # And: the audio route 404s once the file is gone
+    stream = client.get(
+        f"/meetings/{response.json()['meeting_id']}/audio",
+        headers={TOKEN_HEADER: f"Bearer {service_token}"},
+    )
+    assert stream.status_code == (404 if delete_after else 200)
 
 
 def test_non_audio_upload_gets_4xx_with_no_meeting_job_or_retained_file(
@@ -271,3 +311,222 @@ def test_lan_address_cannot_connect_to_the_loopback_bind(
     finally:
         server.should_exit = True
         thread.join(timeout=10)
+
+
+def test_meeting_list_search_and_filters(
+    client: TestClient, auth: dict[str, str], upload_meeting: Callable[..., dict]
+) -> None:
+    # Given: one uploaded meeting titled 项目规划
+    meeting = upload_meeting(client, title="项目规划")
+
+    # Then: the list row carries duration/participants/unknown_count
+    row = client.get("/meetings", headers=auth).json()["meetings"][0]
+    assert row["title"] == "项目规划"
+    assert "participants" in row and "unknown_count" in row
+
+    # And: title substring search and the unresolved filter both match it
+    assert [
+        m["id"] for m in client.get("/meetings?q=项目", headers=auth).json()["meetings"]
+    ] == [meeting["meeting_id"]]
+    assert [
+        m["id"]
+        for m in client.get("/meetings?unresolved=1", headers=auth).json()["meetings"]
+    ] == [meeting["meeting_id"]]
+    assert client.get("/meetings?q=zzz", headers=auth).json()["meetings"] == []
+
+
+def test_generate_summary_endpoint(
+    client: TestClient, auth: dict[str, str], upload_meeting: Callable[..., dict]
+) -> None:
+    # Given: a meeting uploaded through the fake pipeline
+    meeting = upload_meeting(client)
+
+    # When: a summary is generated
+    response = client.post(f"/meetings/{meeting['meeting_id']}/summary", headers=auth)
+
+    # Then: the structured summary is returned and exposed on the meeting
+    assert response.status_code == 200, response.text
+    assert response.json()["tldr"] == "fake summary"
+    detail = client.get(f"/meetings/{meeting['meeting_id']}", headers=auth).json()
+    assert detail["summary"]["tldr"] == "fake summary"
+
+
+class _BadSummaryBackend:
+    def generate(self, *, system: str, user: str) -> str:
+        return "not json"
+
+
+class _ChineseSummaryBackend:
+    def generate(self, *, system: str, user: str) -> str:
+        return '{"tldr":"讨论了排期","decisions":[],"action_items":[],"chapters":[]}'
+
+
+def test_stream_meeting_audio_and_edit_segment(
+    client: TestClient, auth: dict[str, str], upload_meeting: Callable[..., dict]
+) -> None:
+    # Given: an uploaded meeting
+    meeting = upload_meeting(client)
+
+    # Then: its audio streams and one segment's text can be corrected
+    audio = client.get(f"/meetings/{meeting['meeting_id']}/audio", headers=auth)
+    assert audio.status_code == 200
+    assert audio.headers["content-type"].startswith("audio/")
+    detail = client.get(f"/meetings/{meeting['meeting_id']}", headers=auth).json()
+    segment_id = detail["segments"][0]["id"]
+    patched = client.patch(
+        f"/meetings/{meeting['meeting_id']}/segments/{segment_id}",
+        headers=auth,
+        json={"text": "更正后的文字"},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["text"] == "更正后的文字"
+    after = client.get(f"/meetings/{meeting['meeting_id']}", headers=auth).json()
+    assert after["segments"][0]["text"] == "更正后的文字"
+
+    # And: unknown meeting / segment are 404
+    assert client.get("/meetings/999/audio", headers=auth).status_code == 404
+    assert (
+        client.patch(
+            f"/meetings/{meeting['meeting_id']}/segments/999",
+            headers=auth,
+            json={"text": "x"},
+        ).status_code
+        == 404
+    )
+
+    # And: blank text is 400, unauthenticated audio is 401, Range is 206
+    assert (
+        client.patch(
+            f"/meetings/{meeting['meeting_id']}/segments/{segment_id}",
+            headers=auth,
+            json={"text": "   "},
+        ).status_code
+        == 400
+    )
+    assert client.get(f"/meetings/{meeting['meeting_id']}/audio").status_code == 401
+    ranged = client.get(
+        f"/meetings/{meeting['meeting_id']}/audio",
+        headers={**auth, "Range": "bytes=0-3"},
+    )
+    assert ranged.status_code == 206
+    assert "content-range" in {key.lower() for key in ranged.headers}
+
+    # And: a segment belonging to another meeting is 404 under this meeting
+    other = upload_meeting(client, title="Other")
+    other_segment = client.get(f"/meetings/{other['meeting_id']}", headers=auth).json()[
+        "segments"
+    ][0]["id"]
+    assert (
+        client.patch(
+            f"/meetings/{meeting['meeting_id']}/segments/{other_segment}",
+            headers=auth,
+            json={"text": "x"},
+        ).status_code
+        == 404
+    )
+
+
+def test_summary_error_paths_and_chinese_search(
+    make_app: Callable[..., FastAPI], auth: dict[str, str]
+) -> None:
+    # 503: explicitly disabled summarizer
+    disabled = TestClient(make_app(summarizer=None))
+    assert disabled.post("/meetings/1/summary", headers=auth).status_code == 503
+
+    # 404: unknown meeting
+    default = TestClient(make_app())
+    assert default.post("/meetings/999/summary", headers=auth).status_code == 404
+
+    # 502: the backend returns non-JSON
+    bad = TestClient(make_app(summarizer=_BadSummaryBackend()))
+    created = bad.post(
+        "/meetings",
+        headers=auth,
+        files={"file": ("m.wav", b"RIFF-fake", "audio/wav")},
+        data={"title": "Bad"},
+    ).json()
+    assert (
+        bad.post(f"/meetings/{created['meeting_id']}/summary", headers=auth).status_code
+        == 502
+    )
+
+    # Chinese summary text is searchable (P2b N5)
+    cn = TestClient(make_app(summarizer=_ChineseSummaryBackend()))
+    created = cn.post(
+        "/meetings",
+        headers=auth,
+        files={"file": ("m.wav", b"RIFF-fake", "audio/wav")},
+        data={"title": "中文会"},
+    ).json()
+    cn.post(f"/meetings/{created['meeting_id']}/summary", headers=auth)
+    rows = cn.get("/meetings?q=讨论了排期", headers=auth).json()["meetings"]
+    assert [m["id"] for m in rows] == [created["meeting_id"]]
+
+
+def test_delete_meeting_and_all(
+    client: TestClient,
+    auth: dict[str, str],
+    upload_meeting: Callable[..., dict],
+    db_path: Path,
+) -> None:
+    # Given: two uploaded meetings
+    first = upload_meeting(client, title="A")
+    second = upload_meeting(client, title="B")
+
+    # When: one is deleted
+    assert (
+        client.delete(f"/meetings/{first['meeting_id']}", headers=auth).status_code
+        == 200
+    )
+
+    # Then: it (and its transcript) is gone; the other survives
+    assert [
+        m["id"] for m in client.get("/meetings", headers=auth).json()["meetings"]
+    ] == [second["meeting_id"]]
+    with open_registry(db_path) as registry:
+        assert registry.segments_for_meeting(first["meeting_id"]) == []
+    assert client.delete("/meetings/999", headers=auth).status_code == 404
+
+    # And: delete-all removes the rest
+    assert client.delete("/meetings", headers=auth).json()["deleted"] == 1
+    assert client.get("/meetings", headers=auth).json()["meetings"] == []
+
+
+def test_meeting_list_participant_filter(
+    client: TestClient, auth: dict[str, str], upload_meeting: Callable[..., dict]
+) -> None:
+    # Given: a meeting whose cluster is enrolled as a named speaker
+    meeting = upload_meeting(client)
+    cluster_id = meeting["unknown_clusters"][0]["cluster_id"]
+    enrolled = client.post(
+        "/speakers/enroll",
+        headers=auth,
+        json={"name": "参会人A", "cluster_id": cluster_id},
+    ).json()
+
+    # Then: filtering by that participant returns only the meeting
+    rows = client.get(
+        f"/meetings?participant_id={enrolled['speaker_id']}", headers=auth
+    ).json()["meetings"]
+    assert [m["id"] for m in rows] == [meeting["meeting_id"]]
+    assert (
+        client.get("/meetings?participant_id=999", headers=auth).json()["meetings"]
+        == []
+    )
+
+
+def test_meeting_read_exposes_handoff_and_ui_url(
+    client: TestClient, auth: dict[str, str], upload_meeting: Callable[..., dict]
+) -> None:
+    # Given: an uploaded meeting whose fake pipeline left one unknown cluster
+    result = upload_meeting(client, title="Standup")
+    # Then: the upload payload advertises the handoff and a UI deep link
+    assert result["handoff"]["needed"] is True
+    assert isinstance(result["handoff"]["batch_id"], int)
+    assert "task=speakers" in result["ui_url"]
+    # And: the read view exposes the same handoff
+    detail = client.get(f"/meetings/{result['meeting_id']}", headers=auth).json()
+    assert detail["handoff"]["needed"] is True
+    assert detail["handoff"]["batch_id"] == result["handoff"]["batch_id"]
+    assert detail["handoff"]["unknown_count"] >= 1
+    assert "task=speakers" in detail["ui_url"]

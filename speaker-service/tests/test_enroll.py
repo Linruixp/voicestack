@@ -149,6 +149,9 @@ def test_merge_moves_every_reference_to_the_target_and_drops_the_source(
     with open_registry(db_path) as registry:
         target = registry.add_speaker("Ada")
         source = registry.add_speaker("Ada Duplicate")
+        registry.add_consent(
+            source, purpose="enrollment", retention_until="2027-01-01T00:00:00Z"
+        )
         meeting_id, cluster_id = _meeting_with_cluster(registry, tmp_path)
         enrollment.attach_voiceprint(
             registry,
@@ -173,6 +176,8 @@ def test_merge_moves_every_reference_to_the_target_and_drops_the_source(
             2,
         )
         assert registry.get_speaker(source) is None
+        assert [c.speaker_id for c in registry.consents_for_speaker(target)] == [target]
+        assert registry.consents_for_speaker(source) == []
         assert [
             item.speaker_id for item in registry.voiceprints_for_speaker(target)
         ] == [target]
@@ -293,3 +298,27 @@ def test_short_cluster_is_refused_through_the_http_adapter(
         # Then: the domain guard surfaces as HTTP 400 with a clear message
         assert refused.value.status_code == 400
         assert "voiced audio" in str(refused.value.detail)
+
+
+def test_enroll_speaker_stores_job_title(
+    db_path: Path, tmp_path: Path, embedder_class: type
+) -> None:
+    # Given: an unknown cluster with voiced segments
+    with open_registry(db_path) as registry:
+        meeting_id, cluster_id = _meeting_with_cluster(registry, tmp_path)
+        # When: it is enrolled with an organization and a job title
+        result = enrollment.enroll_speaker(
+            registry,
+            embedder_class(),
+            _two_second_loader,
+            name="张三",
+            organization="某某科技",
+            title="产品总监",
+            meeting_id=meeting_id,
+            cluster_id=cluster_id,
+        )
+        # Then: both are persisted on the speaker
+        speaker = registry.get_speaker(result.speaker_id)
+        assert speaker is not None
+        assert speaker.organization == "某某科技"
+        assert speaker.title == "产品总监"
