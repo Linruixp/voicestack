@@ -309,6 +309,23 @@ class MeetingOps:
             for row in rows
         ]
 
+    def links_for_speaker(self, speaker_id: int) -> list[MeetingSpeakerLink]:
+        rows = self._conn.execute(
+            "SELECT meeting_id, speaker_id, cluster_id, confidence"
+            " FROM meeting_speakers WHERE speaker_id = ?"
+            " ORDER BY meeting_id, cluster_id",
+            (speaker_id,),
+        ).fetchall()
+        return [
+            MeetingSpeakerLink(
+                meeting_id=int(row["meeting_id"]),
+                speaker_id=row["speaker_id"],
+                cluster_id=int(row["cluster_id"]),
+                confidence=row["confidence"],
+            )
+            for row in rows
+        ]
+
     def create_job(self, meeting_id: int, state: JobState = JobState.QUEUED) -> int:
         self._require_meeting(meeting_id)
         with self._conn:

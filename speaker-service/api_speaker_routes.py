@@ -22,7 +22,7 @@ from api_schemas import (
     SpeakerPatch,
     VoiceprintAttach,
 )
-from api_service import speaker_payload
+from api_service import speaker_payload, speaker_sources
 from registry_models import RegistryError
 
 router = APIRouter(prefix="/speakers")
@@ -92,6 +92,12 @@ def delete_speaker(request: Request, speaker_id: int) -> dict[str, object]:
 def export_speaker_route(request: Request, speaker_id: int) -> dict[str, object]:
     with request.app.state.registry_factory() as registry:
         return export_speaker(registry, speaker_id)
+
+
+@router.get("/{speaker_id}/sources", dependencies=[Depends(require_read_auth)])
+def speaker_sources_route(request: Request, speaker_id: int) -> dict[str, object]:
+    with request.app.state.registry_factory() as registry:
+        return {"sources": speaker_sources(registry, speaker_id)}
 
 
 @router.post("/{speaker_id}/re-enroll", dependencies=[Depends(require_mutation_auth)])

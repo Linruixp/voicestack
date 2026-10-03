@@ -103,6 +103,20 @@ def enroll_new_speaker(
     if not cleaned:
         raise HTTPException(400, "speaker name must not be empty")
     meeting_id = resolve_cluster_meeting(registry, cluster_id)
+    existing = next(
+        (
+            link
+            for link in registry.meeting_speakers_for_meeting(meeting_id)
+            if link.cluster_id == cluster_id and link.speaker_id is not None
+        ),
+        None,
+    )
+    if existing is not None:
+        raise HTTPException(
+            409,
+            f"cluster {cluster_id} 已归属说话人 {existing.speaker_id}；"
+            "请改用「关联已有说话人」，或先删除该说话人再新建。",
+        )
     try:
         result = enrollment.enroll_speaker(
             registry,

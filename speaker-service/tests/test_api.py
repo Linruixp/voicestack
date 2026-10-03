@@ -463,6 +463,35 @@ def test_summary_error_paths_and_chinese_search(
     assert [m["id"] for m in rows] == [created["meeting_id"]]
 
 
+def test_delete_meeting_and_all(
+    client: TestClient,
+    auth: dict[str, str],
+    upload_meeting: Callable[..., dict],
+    db_path: Path,
+) -> None:
+    # Given: two uploaded meetings
+    first = upload_meeting(client, title="A")
+    second = upload_meeting(client, title="B")
+
+    # When: one is deleted
+    assert (
+        client.delete(f"/meetings/{first['meeting_id']}", headers=auth).status_code
+        == 200
+    )
+
+    # Then: it (and its transcript) is gone; the other survives
+    assert [
+        m["id"] for m in client.get("/meetings", headers=auth).json()["meetings"]
+    ] == [second["meeting_id"]]
+    with open_registry(db_path) as registry:
+        assert registry.segments_for_meeting(first["meeting_id"]) == []
+    assert client.delete("/meetings/999", headers=auth).status_code == 404
+
+    # And: delete-all removes the rest
+    assert client.delete("/meetings", headers=auth).json()["deleted"] == 1
+    assert client.get("/meetings", headers=auth).json()["meetings"] == []
+
+
 def test_meeting_list_participant_filter(
     client: TestClient, auth: dict[str, str], upload_meeting: Callable[..., dict]
 ) -> None:

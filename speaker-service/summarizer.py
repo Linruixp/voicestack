@@ -74,6 +74,7 @@ class OllamaBackend:
             {
                 "model": self.model,
                 "stream": False,
+                "think": False,
                 "format": SUMMARY_SCHEMA,
                 "keep_alive": "30m",
                 "options": {"temperature": 0.2, "num_ctx": 32768},

@@ -304,6 +304,30 @@ def test_enroll_records_consent_and_exposes_retention(
         assert len(consents) == 1 and consents[0].purpose == "enrollment"
 
 
+def test_enroll_same_cluster_twice_is_rejected(
+    client: TestClient,
+    auth: dict[str, str],
+    upload_meeting: Callable[..., dict[str, Any]],
+) -> None:
+    # Given: an unknown cluster already enrolled as a speaker
+    meeting = upload_meeting(client)
+    cluster_id = meeting["unknown_clusters"][0]["cluster_id"]
+    first = client.post(
+        "/speakers/enroll", headers=auth, json={"name": "A", "cluster_id": cluster_id}
+    )
+    assert first.status_code == 201
+
+    # When/Then: enrolling the same cluster again is refused (no duplicate speaker)
+    second = client.post(
+        "/speakers/enroll", headers=auth, json={"name": "B", "cluster_id": cluster_id}
+    )
+    assert second.status_code == 409
+    names = [
+        s["name"] for s in client.get("/speakers", headers=auth).json()["speakers"]
+    ]
+    assert names == ["A"]
+
+
 def test_export_speaker_returns_metadata_consents_and_vectors(
     client: TestClient,
     auth: dict[str, str],
@@ -336,6 +360,38 @@ def test_export_speaker_returns_metadata_consents_and_vectors(
     assert len(raw) == 256 * 4
     # And: unknown speakers are 404
     assert client.get("/speakers/999/export", headers=auth).status_code == 404
+
+
+def test_speaker_sources_and_re_enroll_from_source(
+    client: TestClient,
+    auth: dict[str, str],
+    upload_meeting: Callable[..., dict[str, Any]],
+) -> None:
+    # Given: a speaker enrolled from a meeting cluster
+    meeting = upload_meeting(client)
+    cluster_id = meeting["unknown_clusters"][0]["cluster_id"]
+    created = client.post(
+        "/speakers/enroll",
+        headers=auth,
+        json={"name": "源测试", "cluster_id": cluster_id},
+    ).json()
+
+    # Then: that cluster is listed as a re-enrollment source
+    sources = client.get(
+        f"/speakers/{created['speaker_id']}/sources", headers=auth
+    ).json()["sources"]
+    assert len(sources) == 1
+    assert sources[0]["cluster_id"] == cluster_id
+    assert sources[0]["meeting_id"] == meeting["meeting_id"]
+
+    # And: re-enrolling from the source succeeds
+    again = client.post(
+        f"/speakers/{created['speaker_id']}/re-enroll",
+        headers=auth,
+        json={"cluster_id": sources[0]["cluster_id"]},
+    )
+    assert again.status_code == 200
+    assert again.json()["voiceprint_id"] > 0
 
 
 def test_re_enroll_purges_stale_voiceprints_and_records_consent(

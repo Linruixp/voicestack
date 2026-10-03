@@ -102,6 +102,7 @@ def test_ollama_backend_builds_constrained_request(
     sent = json.loads(opener.request.data.decode("utf-8"))
     assert sent["model"] == "qwen3.5:9b"
     assert sent["stream"] is False
+    assert sent["think"] is False
     assert sent["format"] == summarizer.SUMMARY_SCHEMA
     assert sent["options"]["num_ctx"] == 32768
 

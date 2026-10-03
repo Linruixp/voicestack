@@ -193,6 +193,33 @@ def meeting_result_payload(
     return payload
 
 
+def speaker_sources(registry: Registry, speaker_id: int) -> list[dict[str, Any]]:
+    """The speaker's linked clusters — the audio sources usable for re-enrollment."""
+    if registry.get_speaker(speaker_id) is None:
+        raise HTTPException(404, f"speaker {speaker_id} does not exist")
+    sources: list[dict[str, Any]] = []
+    for link in registry.links_for_speaker(speaker_id):
+        meeting = registry.get_meeting(link.meeting_id)
+        members = [
+            segment
+            for segment in registry.segments_for_meeting(link.meeting_id)
+            if segment.cluster_id == link.cluster_id
+        ]
+        if not members:
+            continue
+        sources.append(
+            {
+                "cluster_id": link.cluster_id,
+                "meeting_id": link.meeting_id,
+                "meeting_title": meeting.title if meeting else f"#{link.meeting_id}",
+                "segment_count": len(members),
+                "start": min(segment.start for segment in members),
+                "end": max(segment.end for segment in members),
+            }
+        )
+    return sources
+
+
 def meeting_row_payload(
     registry: Registry, meeting: Meeting, names: dict[int, str] | None = None
 ) -> dict[str, Any]:

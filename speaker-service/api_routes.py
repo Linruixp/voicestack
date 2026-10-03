@@ -244,6 +244,31 @@ def patch_segment(
         return update_segment(registry, meeting_id, segment_id, body.text)
 
 
+@router.delete("/meetings", dependencies=[Depends(require_mutation_auth)])
+def delete_all_meetings(request: Request) -> dict[str, object]:
+    with request.app.state.registry_factory() as registry:
+        meetings = registry.list_meetings()
+        paths = [item.audio_path for item in meetings if item.audio_path]
+        for meeting in meetings:
+            registry.delete_meeting(meeting.id)
+    for path in paths:
+        Path(path).unlink(missing_ok=True)
+    return {"deleted": len(meetings)}
+
+
+@router.delete("/meetings/{meeting_id}", dependencies=[Depends(require_mutation_auth)])
+def delete_meeting(request: Request, meeting_id: int) -> dict[str, object]:
+    with request.app.state.registry_factory() as registry:
+        meeting = registry.get_meeting(meeting_id)
+        if meeting is None:
+            raise HTTPException(404, f"meeting {meeting_id} does not exist")
+        audio_path = meeting.audio_path
+        registry.delete_meeting(meeting_id)
+    if audio_path:
+        Path(audio_path).unlink(missing_ok=True)
+    return {"deleted": True, "meeting_id": meeting_id}
+
+
 @router.get("/jobs/{job_id}", dependencies=[Depends(require_read_auth)])
 def get_job(request: Request, job_id: int) -> dict[str, object]:
     with request.app.state.registry_factory() as registry:
