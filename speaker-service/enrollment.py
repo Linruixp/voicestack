@@ -94,6 +94,7 @@ def enroll_speaker(
     cluster_id: int,
     organization: str | None = None,
     notes: str | None = None,
+    title: str | None = None,
 ) -> EnrolledSpeaker:
     """Create a NEW speaker from a cluster; the voiceprint guard runs first."""
     meeting = _require_cluster(registry, meeting_id, cluster_id)
@@ -105,7 +106,7 @@ def enroll_speaker(
         segments,
         cluster_id=cluster_id,
     )
-    speaker_id = registry.add_speaker(name, organization, notes)
+    speaker_id = registry.add_speaker(name, organization, notes, title)
     voiceprint_id = registry.add_voiceprint(speaker_id, voiceprint)
     speaker = registry.get_speaker(speaker_id)
     assert speaker is not None
@@ -164,6 +165,24 @@ def attach_voiceprint(
     return AttachedVoiceprint(speaker_id, voiceprint_id, cluster_id, similarity)
 
 
+def label_cluster(
+    registry: Registry,
+    *,
+    meeting_id: int,
+    cluster_id: int,
+    speaker_id: int,
+    state: ClusterState = ClusterState.NAMED,
+) -> None:
+    """Label a cluster for this transcript only (no voiceprint is stored)."""
+    speaker = registry.get_speaker(speaker_id)
+    if speaker is None:
+        raise SpeakerNotFoundError(speaker_id)
+    _require_cluster(registry, meeting_id, cluster_id)
+    _apply_assignment(
+        registry, meeting_id, cluster_id, speaker_id, state, speaker.name, None
+    )
+
+
 def merge_speakers(
     registry: Registry, *, target_id: int, source_id: int
 ) -> MergeOutcome:
@@ -192,6 +211,12 @@ def merge_speakers(
             "UPDATE clusters SET label = ? WHERE id IN"
             " (SELECT cluster_id FROM meeting_speakers WHERE speaker_id = ?)",
             (target.name, target_id),
+        )
+        # Keep consent traceability: the source's consent history moves to the
+        # target before the source row (and its consents) cascade-delete.
+        conn.execute(
+            "UPDATE enroll_consents SET speaker_id = ? WHERE speaker_id = ?",
+            (target_id, source_id),
         )
         conn.execute("DELETE FROM speakers WHERE id = ?", (source_id,))
     return MergeOutcome(target_id, source_id, voiceprints, links, segments)

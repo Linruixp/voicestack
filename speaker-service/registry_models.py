@@ -40,6 +40,14 @@ class JobState(StrEnum):
     FAILED = "failed"
 
 
+class BatchState(StrEnum):
+    """Lifecycle of a speaker-naming batch."""
+
+    OPEN = "open"
+    RESOLVED = "resolved"
+    DISMISSED = "dismissed"
+
+
 class RegistryError(RuntimeError):
     """Base class for registry failures."""
 
@@ -75,6 +83,7 @@ class Speaker:
     organization: str | None
     notes: str | None
     created_at: str
+    title: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +118,11 @@ class Meeting:
     date: str | None
     audio_path: str | None
     created_at: str
+    topic: str | None = None
+    location: str | None = None
+    duration_s: float | None = None
+    summary_json: str | None = None
+    original_title: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,3 +183,41 @@ class ClusterLink:
     cluster_id: int
     speaker_id: int | None = None
     confidence: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SpeakerBatch:
+    """A pending set of unknown clusters to name for one meeting."""
+
+    id: int
+    meeting_id: int
+    state: BatchState
+    created_at: str
+    resolved_at: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class BatchItem:
+    """One unknown cluster awaiting a naming decision."""
+
+    id: int
+    batch_id: int
+    cluster_id: int
+    suggested_speaker_id: int | None
+    similarity: float | None
+    resolution: str | None
+    resolved_speaker_id: int | None
+    resolved_at: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class SpeakerConsent:
+    """A recorded consent for storing a speaker's voiceprint."""
+
+    id: int
+    speaker_id: int
+    granted_at: str
+    purpose: str
+    retention_until: str
+    source_batch_id: int | None
+    revoked_at: str | None

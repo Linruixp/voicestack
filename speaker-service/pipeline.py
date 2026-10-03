@@ -16,7 +16,8 @@ re-enrolls anyone.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -64,6 +65,7 @@ class PipelineConfig:
     diarize: Callable[[Path], list[diarize.SpeakerTurn]] | None = None
     embedder: ClusterEmbedder | None = None
     match_threshold: float | None = None
+    handoff_threshold: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +111,7 @@ class MeetingResult:
     speakers: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
     match_threshold: float = 0.0
+    batch_id: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -283,7 +286,10 @@ def transcribe_meeting(
     store = registry if registry is not None else open_registry()
     try:
         title = meeting_title or path.stem
-        meeting_id = store.create_meeting(title, audio_path=str(path))
+        meeting_date = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).isoformat()
+        meeting_id = store.create_meeting(
+            title, date=meeting_date, audio_path=str(path)
+        )
         job_id = store.create_job(meeting_id, JobState.QUEUED)
         store.update_job(job_id, JobState.RUNNING)
         job = _Job(store, meeting_id, job_id, title)
@@ -298,6 +304,25 @@ def transcribe_meeting(
         except Exception as exc:
             store.update_job(job_id, JobState.FAILED, f"{type(exc).__name__}: {exc}")
             raise
+        segments = store.segments_for_meeting(meeting_id)
+        duration = max((segment.end for segment in segments), default=None)
+        if duration is not None:
+            store.update_meeting(meeting_id, duration_s=duration)
+        handoff_threshold = int(
+            get_settings().handoff_threshold
+            if overrides.handoff_threshold is None
+            else overrides.handoff_threshold
+        )
+        if (
+            result.unknown_clusters
+            and len(result.unknown_clusters) >= handoff_threshold
+        ):
+            batch_id = store.create_speaker_batch(meeting_id)
+            for unknown in result.unknown_clusters:
+                store.add_batch_item(
+                    batch_id, unknown.cluster_id, similarity=unknown.similarity
+                )
+            result = replace(result, batch_id=batch_id)
         store.update_job(job_id, JobState.DONE)
         return result
     finally:

@@ -1,6 +1,6 @@
 """Doctest-style guard for ``docs/USAGE.md`` (task 33).
 
-The user guide pins four MCP server keys and 21 tool names. This test fails the
+The user guide pins four MCP server keys and 23 tool names. This test fails the
 moment any of them drifts from the RUNNING setup, so a stale name in the guide
 cannot survive a test run.
 

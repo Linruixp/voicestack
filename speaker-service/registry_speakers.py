@@ -36,21 +36,26 @@ class SpeakerOps:
     _conn: sqlite3.Connection
 
     def add_speaker(
-        self, name: str, organization: str | None = None, notes: str | None = None
+        self,
+        name: str,
+        organization: str | None = None,
+        notes: str | None = None,
+        title: str | None = None,
     ) -> int:
         clean = name.strip()
         if not clean:
             raise RegistryError("speaker name must not be empty")
         with self._conn:
             cursor = self._conn.execute(
-                "INSERT INTO speakers(name, organization, notes) VALUES (?, ?, ?)",
-                (clean, organization, notes),
+                "INSERT INTO speakers(name, organization, notes, title)"
+                " VALUES (?, ?, ?, ?)",
+                (clean, organization, notes, title),
             )
         return last_id(cursor)
 
     def get_speaker(self, speaker_id: int) -> Speaker | None:
         row = self._conn.execute(
-            "SELECT id, name, organization, notes, created_at"
+            "SELECT id, name, organization, notes, created_at, title"
             " FROM speakers WHERE id = ?",
             (speaker_id,),
         ).fetchone()
@@ -58,7 +63,8 @@ class SpeakerOps:
 
     def list_speakers(self) -> list[Speaker]:
         rows = self._conn.execute(
-            "SELECT id, name, organization, notes, created_at FROM speakers ORDER BY id"
+            "SELECT id, name, organization, notes, created_at, title"
+            " FROM speakers ORDER BY id"
         ).fetchall()
         return [speaker_from_row(row) for row in rows]
 
@@ -88,6 +94,18 @@ class SpeakerOps:
                 "DELETE FROM speakers WHERE id = ?", (speaker_id,)
             )
         return cursor.rowcount > 0
+
+    def delete_stale_voiceprints(
+        self, speaker_id: int, model_id: str, revision: str
+    ) -> int:
+        """Delete only voiceprints not produced by the given (running) model."""
+        with self._conn:
+            cursor = self._conn.execute(
+                "DELETE FROM voiceprints WHERE speaker_id = ?"
+                " AND (model_id != ? OR revision != ?)",
+                (speaker_id, model_id, revision),
+            )
+        return cursor.rowcount
 
     def add_voiceprint(self, speaker_id: int, embedding: VersionedVector) -> int:
         """Store a vector WITH its pinned-model provenance (never a bare array)."""

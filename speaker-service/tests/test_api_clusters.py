@@ -52,3 +52,25 @@ def test_split_moves_the_tail_into_a_new_unknown_cluster(
         ).status_code
         == 404
     )
+
+
+def test_cluster_sample_returns_playable_wav(
+    client: TestClient,
+    auth: dict[str, str],
+    upload_meeting: Callable[..., dict[str, Any]],
+) -> None:
+    # Given: a meeting with an unknown cluster
+    meeting = upload_meeting(client)
+    cluster_id = meeting["unknown_clusters"][0]["cluster_id"]
+    # When: the sample endpoint is fetched
+    response = client.get(f"/clusters/{cluster_id}/sample", headers=auth)
+    # Then: it returns a playable WAV clip
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "audio/wav"
+    assert response.content[:4] == b"RIFF"
+
+
+def test_cluster_sample_unknown_is_404(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    assert client.get("/clusters/999/sample", headers=auth).status_code == 404

@@ -7,6 +7,7 @@ transport/HTTP failure into a structured :class:`mcp_proxy.BridgeError`.
 from __future__ import annotations
 
 import mimetypes
+import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -173,6 +174,20 @@ class ServiceClient:
         return self._request(
             "PATCH", f"/speakers/{speaker_id}", json_body={"name": name}
         )
+
+    def rename_meeting(self, meeting_id: int, title: str) -> Any:
+        return self._request(
+            "PATCH", f"/meetings/{meeting_id}", json_body={"title": title}
+        )
+
+    def open_speaker_ui(self, meeting_id: int) -> Any:
+        """Open the meeting's speaker-naming deep link in the default browser."""
+        detail = self._request("GET", f"/meetings/{meeting_id}")
+        url = detail.get("ui_url") or f"{self.cfg.base_url}/"
+        subprocess.Popen(  # noqa: S603 - fixed argv, no shell
+            ["open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        return {"opened": url}
 
 
 def _detail(resp: httpx.Response) -> str:

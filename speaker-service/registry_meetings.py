@@ -18,6 +18,20 @@ from registry_models import (
 )
 from registry_support import last_id, meeting_from_row
 
+_MEETING_COLUMNS = (
+    "id, title, date, audio_path, created_at, topic, location,"
+    " duration_s, summary_json, original_title"
+)
+_MEETING_COLUMNS_M = ", ".join(
+    f"m.{name.strip()}" for name in _MEETING_COLUMNS.split(",")
+)
+
+
+def _like_pattern(term: str) -> str:
+    """A bound LIKE pattern with the user's %/_ escaped (literal substring search)."""
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
 
 class MeetingOps:
     """Meetings and everything produced by processing one."""
@@ -25,27 +39,128 @@ class MeetingOps:
     _conn: sqlite3.Connection
 
     def create_meeting(
-        self, title: str, date: str | None = None, audio_path: str | None = None
+        self,
+        title: str,
+        date: str | None = None,
+        audio_path: str | None = None,
+        *,
+        topic: str | None = None,
+        location: str | None = None,
+        duration_s: float | None = None,
+        original_title: str | None = None,
     ) -> int:
         with self._conn:
             cursor = self._conn.execute(
-                "INSERT INTO meetings(title, date, audio_path) VALUES (?, ?, ?)",
-                (title, date, audio_path),
+                "INSERT INTO meetings(title, date, audio_path, topic, location,"
+                " duration_s, original_title) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    title,
+                    date,
+                    audio_path,
+                    topic,
+                    location,
+                    duration_s,
+                    original_title if original_title is not None else title,
+                ),
             )
         return last_id(cursor)
 
     def get_meeting(self, meeting_id: int) -> Meeting | None:
         row = self._conn.execute(
-            "SELECT id, title, date, audio_path, created_at FROM meetings WHERE id = ?",
+            f"SELECT {_MEETING_COLUMNS} FROM meetings WHERE id = ?",
             (meeting_id,),
         ).fetchone()
         return meeting_from_row(row) if row is not None else None
 
     def list_meetings(self) -> list[Meeting]:
         rows = self._conn.execute(
-            "SELECT id, title, date, audio_path, created_at FROM meetings ORDER BY id"
+            f"SELECT {_MEETING_COLUMNS} FROM meetings ORDER BY id"
         ).fetchall()
         return [meeting_from_row(row) for row in rows]
+
+    def search_meetings(
+        self,
+        *,
+        q: str | None = None,
+        participant_id: int | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        unresolved: bool = False,
+    ) -> list[Meeting]:
+        """Filter meetings by text (title/summary/transcript), participant, date, state."""
+        clauses: list[str] = []
+        params: list[object] = []
+        if q:
+            like = _like_pattern(q)
+            clauses.append(
+                "(m.title LIKE ? ESCAPE '\\' OR m.summary_json LIKE ? ESCAPE '\\'"
+                " OR EXISTS (SELECT 1 FROM segments s WHERE s.meeting_id = m.id"
+                " AND s.text LIKE ? ESCAPE '\\'))"
+            )
+            params += [like, like, like]
+        if participant_id is not None:
+            clauses.append(
+                "EXISTS (SELECT 1 FROM meeting_speakers ms WHERE ms.meeting_id = m.id"
+                " AND ms.speaker_id = ?)"
+            )
+            params.append(participant_id)
+        if date_from is not None:
+            clauses.append("m.date >= ?")
+            params.append(date_from)
+        if date_to is not None:
+            clauses.append("m.date <= ?")
+            params.append(date_to)
+        if unresolved:
+            clauses.append(
+                "EXISTS (SELECT 1 FROM clusters c WHERE c.meeting_id = m.id"
+                " AND c.state = 'unknown')"
+            )
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = self._conn.execute(
+            f"SELECT {_MEETING_COLUMNS_M} FROM meetings m{where}"
+            " ORDER BY m.date DESC, m.id DESC",
+            tuple(params),
+        ).fetchall()
+        return [meeting_from_row(row) for row in rows]
+
+    def update_meeting(
+        self,
+        meeting_id: int,
+        *,
+        title: str | None = None,
+        topic: str | None = None,
+        location: str | None = None,
+        duration_s: float | None = None,
+        summary_json: str | None = None,
+    ) -> bool:
+        """Patch meeting metadata; on the first title edit keep ``original_title``."""
+        assignments: list[str] = []
+        params: list[object] = []
+        if title is not None:
+            assignments.append("original_title = COALESCE(original_title, title)")
+            assignments.append("title = ?")
+            params.append(title)
+        if topic is not None:
+            assignments.append("topic = ?")
+            params.append(topic)
+        if location is not None:
+            assignments.append("location = ?")
+            params.append(location)
+        if duration_s is not None:
+            assignments.append("duration_s = ?")
+            params.append(duration_s)
+        if summary_json is not None:
+            assignments.append("summary_json = ?")
+            params.append(summary_json)
+        if not assignments:
+            return self.get_meeting(meeting_id) is not None
+        params.append(meeting_id)
+        with self._conn:
+            cursor = self._conn.execute(
+                f"UPDATE meetings SET {', '.join(assignments)} WHERE id = ?",
+                (*params,),
+            )
+        return cursor.rowcount > 0
 
     def delete_meeting(self, meeting_id: int) -> bool:
         """Remove a meeting and everything derived from it.

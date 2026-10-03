@@ -25,8 +25,12 @@ from pathlib import Path
 from types import TracebackType
 
 from config import get_settings
+from registry_batches import BatchOps
+from registry_consents import ConsentOps
 from registry_meetings import MeetingOps
 from registry_models import (
+    BatchItem,
+    BatchState,
     Cluster,
     ClusterLink,
     ClusterState,
@@ -41,6 +45,8 @@ from registry_models import (
     RegistryError,
     Segment,
     Speaker,
+    SpeakerBatch,
+    SpeakerConsent,
     SpeakerNotFoundError,
     StoredVoiceprint,
     VersionedVector,
@@ -49,6 +55,8 @@ from registry_schema import SCHEMA_VERSION, connect as _connect, current_version
 from registry_speakers import SpeakerOps
 
 __all__ = [
+    "BatchItem",
+    "BatchState",
     "Cluster",
     "ClusterLink",
     "ClusterState",
@@ -65,6 +73,8 @@ __all__ = [
     "SCHEMA_VERSION",
     "Segment",
     "Speaker",
+    "SpeakerBatch",
+    "SpeakerConsent",
     "SpeakerNotFoundError",
     "StoredVoiceprint",
     "VersionedVector",
@@ -86,7 +96,7 @@ def default_db_path() -> Path:
     return get_settings().db_path
 
 
-class Registry(SpeakerOps, MeetingOps):
+class Registry(SpeakerOps, MeetingOps, BatchOps, ConsentOps):
     """File-backed registry; use :func:`open_registry` (context manager)."""
 
     def __init__(self, connection: sqlite3.Connection) -> None:

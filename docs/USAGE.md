@@ -134,13 +134,15 @@ this block change together.
     "attach_to_speaker",
     "identify_speaker",
     "get_meeting",
-    "rename_speaker"
+    "rename_speaker",
+    "rename_meeting",
+    "open_speaker_ui"
   ]
 }
 ```
 <!-- /MCP-TOOL-MANIFEST -->
 
-That is 21 tools in total. From OMO you rarely name a tool yourself; you write a
+That is 23 tools in total. From OMO you rarely name a tool yourself; you write a
 prompt and the agent picks the tool. The prompts and calls below show both
 layers so you can predict what will run.
 
@@ -280,6 +282,8 @@ Speaker directory tools:
 | `vs-speaker.enroll_speaker` | Create a NEW speaker from a diarized cluster. |
 | `vs-speaker.attach_to_speaker` | Add a cluster's voiceprint to an EXISTING speaker. |
 | `vs-speaker.rename_speaker` | Rename a speaker. |
+| `vs-speaker.rename_meeting` | Edit a meeting's title. |
+| `vs-speaker.open_speaker_ui` | Open the speaker-naming Web UI for a meeting. |
 | `vs-speaker.identify_speaker` | Match a clip against enrolled voiceprints. |
 | `vs-speaker.get_meeting` | Re-read a stored transcript. |
 | `vs-speaker.transcribe_meeting` | Transcribe a new recording. |

@@ -65,6 +65,21 @@ class Settings(BaseSettings):
     # soon as its transcription job reaches a terminal state (done or failed).
     # Off by default so a failed job can be re-inspected.
     delete_audio_after_transcribe: bool = False
+    # A transcription with at least this many unknown clusters opens a speaker
+    # batch and exposes a Web-UI deep link for the agent to hand off.
+    handoff_threshold: int = 3
+    # Base URL used to build the Web-UI deep link; defaults to the bound host.
+    ui_base_url: str | None = None
+    # Default retention term for a stored voiceprint's consent record.
+    consent_retention_days: int = 365
+    # Local summarization (Ollama). No model is downloaded by the service.
+    ollama_base_url: str = "http://localhost:11434"
+    summary_model: str = "qwen3.5:9b"
+    summary_timeout_s: float = 600.0
+
+    @property
+    def resolved_ui_base_url(self) -> str:
+        return self.ui_base_url or f"http://{self.bind}:{self.port}"
 
     @property
     def hf_home(self) -> str:
