@@ -7,7 +7,8 @@ header h1 { font-size: 16px; margin: 0; font-weight: 600; }
 .health { font-size: 12px; color: #86efac; }
 .health.down { color: #fca5a5; }
 nav { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px 20px 0; }
-nav button { border: 1px solid #d1d5db; background: #fff; padding: 8px 12px; cursor: pointer; border-radius: 6px 6px 0 0; font-size: 13px; }
+nav button { border: 1px solid #d1d5db; background: #fff; color: #1f2937; padding: 8px 12px; cursor: pointer; border-radius: 6px 6px 0 0; font-size: 13px; }
+nav button:hover { background: #f3f4f6; }
 nav button.active { background: #1f2937; color: #fff; border-color: #1f2937; }
 main { padding: 16px 20px 60px; }
 .view { display: none; }
@@ -51,6 +52,11 @@ dialog menu { display: flex; gap: 8px; justify-content: flex-end; padding: 0; ma
 .segment.active { background: #fff7ed; }
 .segment .text { cursor: text; }
 .segment-input { width: 100%; min-height: 40px; font: inherit; }
+#view-transcript.active { display: flex; flex-direction: column; height: calc(100vh - 132px); }
+#transcript-intro { flex: 0 0 auto; max-height: 34vh; overflow-y: auto; }
+#transcript-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.segment-scroll { flex: 1 1 auto; min-height: 80px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px 10px; background: #fff; }
+#transcript-clusters { flex: 0 0 auto; }
 button.link { background: none; border: none; color: #2563eb; cursor: pointer; padding: 0; font-size: 12px; }
 .speaker-0 { color: #1d4ed8; } .speaker-1 { color: #047857; } .speaker-2 { color: #b45309; }
 .speaker-3 { color: #7c3aed; } .speaker-4 { color: #be123c; } .speaker-5 { color: #0e7490; }

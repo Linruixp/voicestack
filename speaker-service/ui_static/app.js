@@ -12,7 +12,7 @@
 const KEEPALIVE_MS = 30_000; // low-rate: an open UI counts as service activity
 const state = {
   speakers: [], meetings: [], allMeetings: [], detail: null, selectedCluster: null, purge: null,
-  wizard: null, wizardIndex: 0, wizardDecisions: {}, wizardSubmitting: false,
+  wizard: null, wizardIndex: 0, wizardDecisions: {}, wizardSubmitting: false, reenroll: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -89,6 +89,9 @@ async function loadMeetings() {
   state.allMeetings = (await api("/meetings")).meetings;
   renderMeetingOptions();
   await applyMeetingFilters();
+  if (!state.detail && state.allMeetings.length) {
+    await openMeeting(Number($("transcript-meeting").value));
+  }
 }
 
 function meetingQuery() {
@@ -192,7 +195,8 @@ function renderTranscript() {
   body.innerHTML =
     `<p><strong>${esc(d.meeting.title)}</strong> · speakers: ${d.speakers.length ? d.speakers.map(esc).join(", ") : "none"}` +
     `${d.unknown_clusters.length ? ` · <strong>${d.unknown_clusters.length} unknown cluster(s)</strong>` : ""}</p>` +
-    segments + (clusters || "<p>No unknown clusters.</p>");
+    `<div id="transcript-segments" class="segment-scroll" data-testid="transcript-segments">${segments}</div>` +
+    `<div id="transcript-clusters" data-testid="transcript-clusters">${clusters || "<p>No unknown clusters.</p>"}</div>`;
   bindSegmentInteractions();
   body.querySelectorAll("[data-resolve]").forEach((b) =>
     b.addEventListener("click", () => {
@@ -252,6 +256,11 @@ function bindSegmentInteractions() {
   document.querySelectorAll("#transcript-body .segment").forEach((el) => {
     el.addEventListener("click", (event) => {
       if (event.detail > 1) return;
+      const audio = $("transcript-audio");
+      if (audio && !audio.paused && el.classList.contains("active")) {
+        audio.pause();
+        return;
+      }
       seekAudio(el.dataset.start);
     });
     const textEl = el.querySelector(".text");
@@ -527,25 +536,28 @@ async function exportSpeaker(id) {
 }
 
 async function reEnrollSpeaker(id) {
-  if (!state.selectedCluster) {
-    setStatus("speaker-status", "先在 Transcript 里选中要用于重新登记的 cluster。");
-    return;
-  }
   const speaker = state.speakers.find((s) => s.id === id);
-  const name = speaker ? speaker.name : `#${id}`;
-  if (!window.confirm(`用选中的 cluster ${state.selectedCluster} 重新登记「${name}」？将清除其过时的声纹。`)) {
+  state.reenroll = { id, name: speaker ? speaker.name : `#${id}` };
+  let sources = [];
+  try {
+    sources = (await api(`/speakers/${id}/sources`)).sources;
+  } catch (err) {
+    setStatus("speaker-status", `读取来源失败：${err.message}`);
     return;
   }
-  try {
-    const result = await api(`/speakers/${id}/re-enroll`, {
-      method: "POST",
-      body: { cluster_id: state.selectedCluster },
-    });
-    setStatus("speaker-status", `已用 cluster ${result.cluster_id} 重新登记。`);
-    await refreshAfterMutation();
-  } catch (err) {
-    setStatus("speaker-status", `重新登记失败：${err.message}`);
-  }
+  $("reenroll-source").innerHTML =
+    sources
+      .map(
+        (s) =>
+          `<option value="${s.cluster_id}">会议 #${s.meeting_id} · ${esc(s.meeting_title)} · ${fmt(s.start)}–${fmt(s.end)} · ${s.segment_count} 段</option>`
+      )
+      .join("") || '<option value="">（无可选片段）</option>';
+  $("reenroll-message").textContent = sources.length
+    ? `为「${state.reenroll.name}」选择一段 TA 的会议发言，用当前模型重新提取声纹。`
+    : `「${state.reenroll.name}」还没有可用于重新登记的会议片段——需先在某场会议里把 TA 的发言关联到该说话人。`;
+  $("reenroll-confirm").disabled = sources.length === 0;
+  setStatus("reenroll-status", "");
+  $("reenroll-dialog").showModal();
 }
 
 function editSpeaker(id) {
@@ -608,7 +620,8 @@ function renderMeetings() {
       `<td class="c-title editable-title" data-testid="meeting-title-${m.id}" data-title-edit="${m.id}" tabindex="0" role="button" title="点击重命名">${esc(m.title)}</td>` +
       `<td>${esc(fmtDate(m.date).slice(0, 10))}${duration}</td>` +
       `<td data-testid="meeting-speakers-${m.id}">${participants}${badge}</td>` +
-      `<td><button type="button" class="secondary" data-open="${m.id}">View transcript</button></td></tr>`;
+      `<td><button type="button" class="secondary" data-open="${m.id}">View transcript</button> ` +
+      `<button type="button" class="danger" data-delete-meeting="${m.id}">删除</button></td></tr>`;
   }
   rows.innerHTML = html;
   rows.querySelectorAll("[data-open]").forEach((b) =>
@@ -625,6 +638,49 @@ function renderMeetings() {
       }
     });
   });
+  rows.querySelectorAll("[data-delete-meeting]").forEach((button) =>
+    button.addEventListener("click", () =>
+      deleteMeeting(Number(button.dataset.deleteMeeting))
+    )
+  );
+}
+
+async function deleteMeeting(id) {
+  const meeting =
+    state.allMeetings.find((m) => m.id === id) ||
+    state.meetings.find((m) => m.id === id);
+  const title = meeting ? meeting.title : `#${id}`;
+  if (!window.confirm(`删除会议「${title}」及其转写？此操作不可撤销。`)) return;
+  try {
+    await api(`/meetings/${id}`, { method: "DELETE" });
+    if (state.detail && state.detail.meeting.id === id) {
+      state.detail = null;
+      renderTranscript();
+    }
+    await loadMeetings();
+    setStatus("meeting-status", `已删除会议「${title}」。`);
+  } catch (err) {
+    setStatus("meeting-status", `删除失败：${err.message}`);
+  }
+}
+
+async function deleteAllMeetings() {
+  const count = state.allMeetings.length;
+  if (!count) {
+    setStatus("meeting-status", "没有可删除的会议。");
+    return;
+  }
+  if (!window.confirm(`删除全部 ${count} 场会议及其转写？此操作不可撤销。`)) return;
+  try {
+    await api("/meetings", { method: "DELETE" });
+    state.detail = null;
+    renderTranscript();
+    await loadMeetings();
+    await loadSpeakers();
+    setStatus("meeting-status", `已删除全部 ${count} 场会议。`);
+  } catch (err) {
+    setStatus("meeting-status", `删除失败：${err.message}`);
+  }
 }
 
 function editMeetingTitleInline(meetingId, cell) {
@@ -866,7 +922,13 @@ function bindForms() {
     }
   });
 
-  $("transcript-meeting").addEventListener("change", (e) => openMeeting(Number(e.target.value)));
+  $("transcript-meeting").addEventListener("change", async (e) => {
+    try {
+      await openMeeting(Number(e.target.value));
+    } catch (err) {
+      setStatus("transcript-status", `加载失败：${err.message}`);
+    }
+  });
   $("split-meeting").addEventListener("change", async (e) => { await openMeeting(Number(e.target.value)); });
 
   const searchInput = $("meeting-search");
@@ -888,18 +950,48 @@ function bindForms() {
     applyMeetingFilters().catch(() => {});
   });
   $("meeting-filters").addEventListener("submit", (e) => e.preventDefault());
+  $("delete-all-meetings").addEventListener("click", () => {
+    deleteAllMeetings().catch(() => {});
+  });
 
   $("enroll-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (!state.selectedCluster) return setStatus("assign-status", "Pick a cluster in the transcript first.");
+    if (!state.selectedCluster) {
+      return setStatus(
+        "enroll-status",
+        "请先在 Transcript 里点「Resolve this cluster」选择一个 cluster。"
+      );
+    }
+    const button = $("enroll-btn");
+    button.disabled = true;
+    setStatus("enroll-status", "创建中…（正在提取声纹）");
     try {
       const result = await api("/speakers/enroll", {
         method: "POST",
-        body: { name: $("enroll-name").value, organization: $("enroll-org").value || null, title: $("enroll-title").value || null, notes: $("enroll-notes").value || null, cluster_id: state.selectedCluster },
+        body: {
+          name: $("enroll-name").value,
+          organization: $("enroll-org").value || null,
+          title: $("enroll-title").value || null,
+          notes: $("enroll-notes").value || null,
+          cluster_id: state.selectedCluster,
+        },
       });
-      setStatus("assign-status", `Created speaker "${result.name}" from cluster ${state.selectedCluster}.`);
+      setStatus(
+        "enroll-status",
+        `✅ 已创建说话人「${result.name}」，并关联 cluster ${result.cluster_id}。`
+      );
+      $("enroll-name").value = "";
+      $("enroll-org").value = "";
+      $("enroll-title").value = "";
+      $("enroll-notes").value = "";
+      state.selectedCluster = null;
       await refreshAfterMutation();
-    } catch (err) { setStatus("assign-status", `Enroll failed: ${err.message}`); }
+      renderAssign();
+    } catch (err) {
+      setStatus("enroll-status", `❌ 创建失败：${err.message}`);
+    } finally {
+      button.disabled = false;
+    }
   });
 
   $("attach-form").addEventListener("submit", async (e) => {
@@ -940,6 +1032,28 @@ function bindForms() {
   $("wizard-exit").addEventListener("click", () => show(state.detail ? "transcript" : "meetings"));
 
   $("purge-cancel").addEventListener("click", () => $("purge-dialog").close());
+  $("reenroll-cancel").addEventListener("click", () => $("reenroll-dialog").close());
+  $("reenroll-confirm").addEventListener("click", async () => {
+    const clusterId = $("reenroll-source").value;
+    if (!clusterId) return setStatus("reenroll-status", "没有可选的会议片段。");
+    const button = $("reenroll-confirm");
+    button.disabled = true;
+    setStatus("reenroll-status", "重新登记中…（正在提取声纹）");
+    try {
+      const result = await api(`/speakers/${state.reenroll.id}/re-enroll`, {
+        method: "POST",
+        body: { cluster_id: Number(clusterId) },
+      });
+      setStatus("reenroll-status", `✅ 已重新登记（新声纹 ${result.voiceprint_id}）。`);
+      $("reenroll-dialog").close();
+      setStatus("speaker-status", `「${state.reenroll.name}」声纹已重新登记。`);
+      await refreshAfterMutation();
+    } catch (err) {
+      setStatus("reenroll-status", `❌ 重新登记失败：${err.message}`);
+    } finally {
+      button.disabled = false;
+    }
+  });
   $("purge-delete").addEventListener("click", async () => {
     const speaker = state.purge;
     if (!speaker) return;

@@ -59,8 +59,9 @@
         <label>Organization <input type="text" id="enroll-org" data-testid="enroll-org"></label>
         <label>职务 <input type="text" id="enroll-title" data-testid="enroll-title"></label>
         <label>Notes <input type="text" id="enroll-notes" data-testid="enroll-notes"></label>
-        <button type="submit" data-testid="enroll-btn">Create speaker from cluster</button>
+        <button type="submit" id="enroll-btn" data-testid="enroll-btn">Create speaker from cluster</button>
       </form>
+      <p id="enroll-status" class="status" data-testid="enroll-status" aria-live="polite"></p>
     </fieldset>
 
     <fieldset>
@@ -112,6 +113,7 @@
       <label>从 <input type="date" id="meeting-filter-from" data-testid="meeting-filter-from"></label>
       <label>到 <input type="date" id="meeting-filter-to" data-testid="meeting-filter-to"></label>
       <label class="inline"><input type="checkbox" id="meeting-filter-unresolved" data-testid="meeting-filter-unresolved"> 仅未确认说话人</label>
+      <button type="button" id="delete-all-meetings" data-testid="delete-all-meetings" class="danger">删除全部会议</button>
     </form>
     <table>
       <thead><tr><th>Title</th><th>Date</th><th>Linked speakers</th><th></th></tr></thead>
@@ -143,6 +145,21 @@
       <button type="button" id="purge-cancel" data-testid="purge-cancel">Cancel</button>
       <button type="button" class="danger" id="purge-delete" data-testid="purge-delete">Delete &amp; purge</button>
     </menu>
+  </form>
+</dialog>
+
+<dialog id="reenroll-dialog" data-testid="reenroll-dialog">
+  <form id="reenroll-form">
+    <h3>重新登记声纹</h3>
+    <p id="reenroll-message" data-testid="reenroll-message"></p>
+    <label>从该说话人参与的会议片段中选择
+      <select id="reenroll-source" data-testid="reenroll-source"></select>
+    </label>
+    <menu>
+      <button type="button" id="reenroll-cancel" data-testid="reenroll-cancel">取消</button>
+      <button type="button" id="reenroll-confirm" data-testid="reenroll-confirm">重新登记</button>
+    </menu>
+    <p id="reenroll-status" class="status" data-testid="reenroll-status" aria-live="polite"></p>
   </form>
 </dialog>
 

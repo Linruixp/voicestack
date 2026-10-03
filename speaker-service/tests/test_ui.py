@@ -120,6 +120,30 @@ def test_ui_transcript_playback_and_edit(client: TestClient) -> None:
     assert "/audio" in js
     assert "/segments/" in js
     assert "data-seek" in js
+    # And: the transcript scrolls inside a bounded box, not the whole page
+    assert "transcript-segments" in js
+    assert "segment-scroll" in js
+
+
+def test_ui_reenroll_dialog(client: TestClient) -> None:
+    # Given: the served bundle
+    html = client.get("/").text
+    js = client.get("/static/app.js").text
+    # Then: re-enroll opens a dialog that lists the speaker's meeting sources
+    assert 'data-testid="reenroll-dialog"' in html
+    assert 'data-testid="reenroll-source"' in html
+    assert 'data-testid="reenroll-confirm"' in html
+    assert "/sources" in js
+
+
+def test_ui_enroll_has_inline_feedback(client: TestClient) -> None:
+    # Given: the served bundle
+    html = client.get("/").text
+    js = client.get("/static/app.js").text
+    # Then: the enroll form has its own inline, live status region
+    assert 'data-testid="enroll-status"' in html
+    assert "已创建说话人" in js
+    assert "创建中" in js
 
 
 def test_ui_summary_controls(client: TestClient) -> None:
@@ -143,6 +167,9 @@ def test_ui_history_search_and_filters(client: TestClient) -> None:
     assert 'data-testid="meeting-filter-to"' in html
     assert "unknown_count" in js
     assert "group-row" in js
+    # And: meetings can be deleted (single + all)
+    assert 'data-testid="delete-all-meetings"' in html
+    assert "data-delete-meeting=" in js
 
 
 def test_ui_speaker_governance_controls(client: TestClient) -> None:
