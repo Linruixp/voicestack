@@ -11,6 +11,7 @@
  *   7. naming/assigning updates the transcript label (not only the directory)
  *   8. the transcript emits a low-rate GET /health keepalive
  *   9. the meeting-history entry lists the linked speaker
+ *  10. the deep-link speaker-naming wizard resolves an unknown cluster (no new nav tab)
  *
  * Env:
  *   VS_BASE_URL    default http://127.0.0.1:3910
@@ -30,6 +31,10 @@ const FIXTURES = process.env.VS_FIXTURES || join(homedir(), "voicestack", "fixtu
 const EVIDENCE = process.env.VS_EVIDENCE || join(homedir(), ".omo", "evidence", "voicestudio-omo-local-stack", "task-25-ui");
 const MEETINGS = join(FIXTURES, "meetings");
 const AUDIO = join(FIXTURES, "audio");
+// A voice that is NOT enrolled by the earlier scenarios, so the upload leaves an
+// unknown cluster and opens a speaker batch for the deep-link wizard. run-e2e.sh
+// synthesises a fresh voice (VS_WIZARD_AUDIO); the fallback may already be known.
+const WIZARD_AUDIO = process.env.VS_WIZARD_AUDIO || join(AUDIO, "en_30s.wav");
 
 mkdirSync(EVIDENCE, { recursive: true });
 
@@ -207,6 +212,50 @@ async function main() {
   while (keepaliveLines.length < 2 && Date.now() < deadline) await sleep(1000);
   expect("UI emits the low-rate /health keepalive", keepaliveLines.length >= 2, keepaliveLines.join(" | "));
   expect("keepalive reports the 30000ms interval", keepaliveLines.some((l) => l.includes("30000")), keepaliveLines[0] || "");
+
+  // ---- 9. deep-link speaker-naming wizard (a view, not a nav tab) ----------
+  const mW = await upload(WIZARD_AUDIO, "D1 wizard voice");
+  const dW = await detail(mW);
+  expect("wizard fixture left an open handoff batch", dW.handoff.needed === true && dW.handoff.batch_id != null, JSON.stringify(dW.handoff));
+  const batchW = dW.handoff.batch_id;
+  await page.goto(`${BASE}/?meeting=${mW}&task=speakers&batch=${batchW}`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-testid="view-wizard"].active', { timeout: 60_000 });
+  expect("deep-linked wizard does NOT add a nav tab", await page.locator("nav button").count() === 5);
+  const sampleSrc = await page.getAttribute('[data-testid="wizard-sample"]', "src");
+  expect(
+    "wizard points an <audio> at the cluster sample",
+    Boolean(sampleSrc) && sampleSrc.includes("/clusters/") && sampleSrc.includes("/sample"),
+    sampleSrc || "",
+  );
+  await page.check('[data-testid="wizard-action-enroll"]');
+  await page.fill('[data-testid="wizard-new-name"]', "Wizard Speaker");
+  await page.fill('[data-testid="wizard-new-title"]', "主讲人");
+  expect("remember checkbox defaults OFF", (await page.isChecked('[data-testid="wizard-remember"]')) === false);
+  let wizardGuard = 0;
+  while (wizardGuard < 25 && await page.locator('[data-testid="wizard-submit"]').isHidden()) {
+    wizardGuard += 1;
+    await page.click('[data-testid="wizard-next"]');
+    await page.check('[data-testid="wizard-action-enroll"]');
+    await page.fill('[data-testid="wizard-new-name"]', `Wizard Speaker ${wizardGuard}`);
+  }
+  await page.click('[data-testid="wizard-submit"]');
+  await page.waitForSelector('[data-testid="view-transcript"].active', { timeout: 120_000 });
+  const dWafter = await detail(mW);
+  expect("wizard resolved every unknown cluster", dWafter.unknown_clusters.length === 0, `${dWafter.unknown_clusters.length}`);
+  expect("wizard cleared the handoff", dWafter.handoff.needed === false, JSON.stringify(dWafter.handoff));
+  const wizSpeakers = await speakers();
+  expect(
+    "wizard created the speaker with its job title",
+    wizSpeakers.some((s) => s.name === "Wizard Speaker" && s.title === "主讲人"),
+    JSON.stringify(wizSpeakers.map((s) => `${s.name}/${s.title}`)),
+  );
+  const wizardSpeaker = wizSpeakers.find((s) => s.name === "Wizard Speaker");
+  expect(
+    "unchecked remember stored NO biometric voiceprint",
+    wizardSpeaker != null && wizardSpeaker.voiceprint_count === 0,
+    `voiceprint_count=${wizardSpeaker ? wizardSpeaker.voiceprint_count : "n/a"}`,
+  );
+  await shot("11-wizard-resolved");
 
   await browser.close();
   await api.dispose();
