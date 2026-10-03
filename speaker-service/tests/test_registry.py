@@ -321,6 +321,20 @@ def test_update_meeting_edits_fields_and_preserves_original_title(
         assert fetched.duration_s == pytest.approx(901.5)
 
 
+def test_update_segment_text_only_changes_text(db_path: Path) -> None:
+    with open_registry(db_path) as registry:
+        meeting_id = registry.create_meeting("M")
+        segment_id = registry.add_segment(
+            meeting_id, NewSegment(0.0, 1.0, "old", None, None)
+        )
+        # Then: the update succeeds and leaves timing/identity untouched
+        assert registry.update_segment_text(segment_id, "new") is True
+        segment = registry.segments_for_meeting(meeting_id)[0]
+        assert (segment.text, segment.start, segment.end) == ("new", 0.0, 1.0)
+        # And: an unknown id reports no change
+        assert registry.update_segment_text(999, "x") is False
+
+
 def test_update_meeting_unknown_id_returns_false(db_path: Path) -> None:
     # Given: a registry with no such meeting
     with open_registry(db_path) as registry:

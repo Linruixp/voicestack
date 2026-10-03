@@ -403,6 +403,35 @@ def export_speaker(registry: Registry, speaker_id: int) -> dict[str, Any]:
     }
 
 
+def update_segment(
+    registry: Registry, meeting_id: int, segment_id: int, text: str
+) -> dict[str, Any]:
+    """Correct one segment's text (identity is unchanged)."""
+    cleaned = (text or "").strip()
+    if not cleaned:
+        raise HTTPException(400, "segment text must not be empty")
+    segment = next(
+        (
+            item
+            for item in registry.segments_for_meeting(meeting_id)
+            if item.id == segment_id
+        ),
+        None,
+    )
+    if segment is None:
+        raise HTTPException(404, f"segment {segment_id} is not in meeting {meeting_id}")
+    if not registry.update_segment_text(segment_id, cleaned):
+        raise HTTPException(404, f"segment {segment_id} does not exist")
+    return {
+        "id": segment_id,
+        "text": cleaned,
+        "start": segment.start,
+        "end": segment.end,
+        "speaker_id": segment.speaker_id,
+        "cluster_id": segment.cluster_id,
+    }
+
+
 def cluster_sample(
     registry: Registry,
     deps: ServiceDeps,

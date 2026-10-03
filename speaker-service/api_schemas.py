@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class _Strict(BaseModel):
@@ -60,6 +60,12 @@ class MeetingPatch(_Strict):
     title: str | None = None
     topic: str | None = None
     location: str | None = None
+
+
+class SegmentPatch(_Strict):
+    """Inline correction of one transcript segment's text."""
+
+    text: str = Field(min_length=1, max_length=20_000)
 
 
 class MergeRequest(_Strict):

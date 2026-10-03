@@ -163,18 +163,27 @@ function allClusters() {
 /* ── view 2: transcript ──────────────────────────────────────────────────── */
 function renderTranscript() {
   const body = $("transcript-body");
+  const audio = $("transcript-audio");
   if (!state.detail) {
     renderIntro();
     body.innerHTML = "<p>Select a meeting.</p>";
+    if (audio) { audio.hidden = true; audio.removeAttribute("src"); audio.load(); }
     return;
   }
   const d = state.detail;
   renderIntro();
+  if (audio) {
+    const src = `/meetings/${d.meeting.id}/audio`;
+    if (audio.getAttribute("src") !== src) audio.src = src;
+    audio.hidden = false;
+  }
   const segments = d.segments.map((s) => {
     const label = s.speaker_name || "unknown";
-    const cls = s.speaker_name ? "" : "unknown";
-    return `<div class="segment"><span class="time">${fmt(s.start)}–${fmt(s.end)}</span>` +
-      `<span class="who ${cls}">${esc(label)}</span><span class="text">${esc(s.text)}</span></div>`;
+    const cls = s.speaker_name ? `speaker-${speakerColorIndex(s.speaker_name)}` : "unknown";
+    return `<div class="segment" data-testid="segment-${s.id}" data-segment="${s.id}" data-start="${s.start}" data-end="${s.end}">` +
+      `<span class="time">${fmt(s.start)}–${fmt(s.end)}</span>` +
+      `<span class="who ${cls}">${esc(label)}</span>` +
+      `<span class="text" data-testid="segment-text-${s.id}" title="双击更正文字">${esc(s.text)}</span></div>`;
   }).join("");
   const clusters = d.unknown_clusters.map((c) =>
     `<div class="cluster flagged" data-testid="unknown-cluster-${c.cluster_id}">` +
@@ -184,12 +193,115 @@ function renderTranscript() {
     `<p><strong>${esc(d.meeting.title)}</strong> · speakers: ${d.speakers.length ? d.speakers.map(esc).join(", ") : "none"}` +
     `${d.unknown_clusters.length ? ` · <strong>${d.unknown_clusters.length} unknown cluster(s)</strong>` : ""}</p>` +
     segments + (clusters || "<p>No unknown clusters.</p>");
+  bindSegmentInteractions();
   body.querySelectorAll("[data-resolve]").forEach((b) =>
     b.addEventListener("click", () => {
       state.selectedCluster = Number(b.dataset.resolve);
       renderAssign();
       show("assign");
     }));
+}
+
+function speakerColorIndex(name) {
+  const text = String(name || "unknown");
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  return hash % 8;
+}
+
+let lastActiveSegmentId = null;
+
+function seekAudio(seconds) {
+  const audio = $("transcript-audio");
+  if (!audio) return;
+  audio.currentTime = Number(seconds) || 0;
+  lastActiveSegmentId = null;
+  audio.play().catch(() => {});
+}
+
+function highlightCurrentSegment() {
+  const audio = $("transcript-audio");
+  if (!audio) return;
+  const t = audio.currentTime;
+  let active = null;
+  document.querySelectorAll("#transcript-body .segment").forEach((el) => {
+    const on = t >= Number(el.dataset.start) && t < Number(el.dataset.end);
+    el.classList.toggle("active", on);
+    if (on) active = el;
+  });
+  const editing = document.querySelector(".segment-input");
+  if (
+    active &&
+    !audio.paused &&
+    !editing &&
+    active.dataset.segment !== lastActiveSegmentId
+  ) {
+    active.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    lastActiveSegmentId = active.dataset.segment;
+  }
+  if (audio.paused) lastActiveSegmentId = null;
+}
+
+function bindSegmentInteractions() {
+  const audio = $("transcript-audio");
+  if (audio && !audio.dataset.bound) {
+    audio.dataset.bound = "1";
+    audio.addEventListener("timeupdate", highlightCurrentSegment);
+    audio.addEventListener("error", () => { audio.hidden = true; });
+  }
+  document.querySelectorAll("#transcript-body .segment").forEach((el) => {
+    el.addEventListener("click", (event) => {
+      if (event.detail > 1) return;
+      seekAudio(el.dataset.start);
+    });
+    const textEl = el.querySelector(".text");
+    textEl.addEventListener("dblclick", (event) => {
+      event.stopPropagation();
+      editSegment(Number(el.dataset.segment), textEl);
+    });
+  });
+}
+
+async function editSegment(segmentId, textEl) {
+  const meetingId = state.detail ? state.detail.meeting.id : null;
+  const current = textEl.textContent;
+  const input = document.createElement("textarea");
+  input.className = "segment-input";
+  input.value = current;
+  input.setAttribute("data-testid", `segment-input-${segmentId}`);
+  textEl.replaceWith(input);
+  input.focus();
+  let settled = false;
+  const finish = async (save) => {
+    if (settled) return;
+    settled = true;
+    const value = input.value.trim();
+    if (save && value && value !== current && meetingId != null) {
+      try {
+        const updated = await api(`/meetings/${meetingId}/segments/${segmentId}`, {
+          method: "PATCH",
+          body: { text: value },
+        });
+        const segment = state.detail
+          ? state.detail.segments.find((item) => item.id === segmentId)
+          : null;
+        if (segment) segment.text = updated.text;
+        renderTranscript();
+        setStatus("transcript-status", "已更正。");
+        return;
+      } catch (err) {
+        renderTranscript();
+        setStatus("transcript-status", `更正失败：${err.message}`);
+        return;
+      }
+    }
+    renderTranscript();
+  };
+  input.addEventListener("blur", () => finish(true));
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); input.blur(); }
+    else if (event.key === "Escape") { event.preventDefault(); settled = true; renderTranscript(); }
+  });
 }
 
 /* ── intro header: editable title + meta line + summary placeholder ──────── */
@@ -212,6 +324,9 @@ function renderIntro() {
   if (generateButton) {
     generateButton.addEventListener("click", () => generateSummary(m.id));
   }
+  document.querySelectorAll("[data-seek]").forEach((button) =>
+    button.addEventListener("click", () => seekAudio(button.dataset.seek))
+  );
   const titleEl = $("transcript-title");
   titleEl.addEventListener("click", () => editMeetingTitle(m.id));
   titleEl.addEventListener("keydown", (e) => {
@@ -252,7 +367,11 @@ function summaryBlock(detail) {
     )
     .join("");
   const chapters = (summary.chapters || [])
-    .map((chapter) => `<li>${esc(fmt(chapter.start))} ${esc(chapter.title)}</li>`)
+    .map(
+      (chapter) =>
+        `<li><button type="button" class="link" data-seek="${Number(chapter.start) || 0}">` +
+        `${esc(fmt(chapter.start))}</button> ${esc(chapter.title)}</li>`
+    )
     .join("");
   return (
     `<div id="transcript-summary" data-testid="transcript-summary" class="summary">` +

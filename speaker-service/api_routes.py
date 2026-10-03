@@ -8,6 +8,7 @@ it is the readiness probe used by the launchers and the UI keepalive.
 
 from __future__ import annotations
 
+import mimetypes
 from pathlib import Path
 
 from fastapi import (
@@ -23,11 +24,17 @@ from fastapi import (
 from fastapi.concurrency import run_in_threadpool
 from pydantic import ValidationError
 from starlette.datastructures import UploadFile as FormUploadFile
+from starlette.responses import FileResponse
 
 import asr
 from api_auth import require_mutation_auth, require_read_auth
-from api_operations import cluster_sample, split_cluster, update_meeting
-from api_schemas import IdentifyRequest, MeetingPatch, SplitRequest
+from api_operations import (
+    cluster_sample,
+    split_cluster,
+    update_meeting,
+    update_segment,
+)
+from api_schemas import IdentifyRequest, MeetingPatch, SegmentPatch, SplitRequest
 from registry_models import MeetingNotFoundError
 from summarizer import summarize_meeting
 from api_service import (
@@ -212,6 +219,29 @@ def cluster_audio_sample(request: Request, cluster_id: int) -> Response:
     with request.app.state.registry_factory() as registry:
         data = cluster_sample(registry, _deps(request), cluster_id)
     return Response(content=data, media_type="audio/wav")
+
+
+@router.get("/meetings/{meeting_id}/audio", dependencies=[Depends(require_read_auth)])
+def stream_meeting_audio(request: Request, meeting_id: int) -> FileResponse:
+    with request.app.state.registry_factory() as registry:
+        meeting = registry.get_meeting(meeting_id)
+    if meeting is None:
+        raise HTTPException(404, f"meeting {meeting_id} does not exist")
+    if not meeting.audio_path or not Path(meeting.audio_path).is_file():
+        raise HTTPException(404, "meeting audio is unavailable")
+    media = mimetypes.guess_type(meeting.audio_path)[0] or "audio/mpeg"
+    return FileResponse(meeting.audio_path, media_type=media)
+
+
+@router.patch(
+    "/meetings/{meeting_id}/segments/{segment_id}",
+    dependencies=[Depends(require_mutation_auth)],
+)
+def patch_segment(
+    request: Request, meeting_id: int, segment_id: int, body: SegmentPatch
+) -> dict[str, object]:
+    with request.app.state.registry_factory() as registry:
+        return update_segment(registry, meeting_id, segment_id, body.text)
 
 
 @router.get("/jobs/{job_id}", dependencies=[Depends(require_read_auth)])

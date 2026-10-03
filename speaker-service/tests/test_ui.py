@@ -111,6 +111,17 @@ def test_ui_has_visible_status_and_keyboard_affordances(client: TestClient) -> N
     assert 'tabindex="0"' in js
 
 
+def test_ui_transcript_playback_and_edit(client: TestClient) -> None:
+    # Given: the served bundle
+    html = client.get("/").text
+    js = client.get("/static/app.js").text
+    # Then: the transcript has a synced player, chapter seek and inline edit
+    assert 'data-testid="transcript-audio"' in html
+    assert "/audio" in js
+    assert "/segments/" in js
+    assert "data-seek" in js
+
+
 def test_ui_summary_controls(client: TestClient) -> None:
     # Given: the served bundle
     js = client.get("/static/app.js").text

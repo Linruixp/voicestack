@@ -207,6 +207,12 @@ def test_uploaded_audio_is_deleted_after_job_only_when_enabled(
     assert response.status_code == 201
     audio = Path(response.json()["audio_path"])
     assert audio.exists() is not delete_after
+    # And: the audio route 404s once the file is gone
+    stream = client.get(
+        f"/meetings/{response.json()['meeting_id']}/audio",
+        headers={TOKEN_HEADER: f"Bearer {service_token}"},
+    )
+    assert stream.status_code == (404 if delete_after else 200)
 
 
 def test_non_audio_upload_gets_4xx_with_no_meeting_job_or_retained_file(
@@ -353,6 +359,71 @@ class _BadSummaryBackend:
 class _ChineseSummaryBackend:
     def generate(self, *, system: str, user: str) -> str:
         return '{"tldr":"讨论了排期","decisions":[],"action_items":[],"chapters":[]}'
+
+
+def test_stream_meeting_audio_and_edit_segment(
+    client: TestClient, auth: dict[str, str], upload_meeting: Callable[..., dict]
+) -> None:
+    # Given: an uploaded meeting
+    meeting = upload_meeting(client)
+
+    # Then: its audio streams and one segment's text can be corrected
+    audio = client.get(f"/meetings/{meeting['meeting_id']}/audio", headers=auth)
+    assert audio.status_code == 200
+    assert audio.headers["content-type"].startswith("audio/")
+    detail = client.get(f"/meetings/{meeting['meeting_id']}", headers=auth).json()
+    segment_id = detail["segments"][0]["id"]
+    patched = client.patch(
+        f"/meetings/{meeting['meeting_id']}/segments/{segment_id}",
+        headers=auth,
+        json={"text": "更正后的文字"},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["text"] == "更正后的文字"
+    after = client.get(f"/meetings/{meeting['meeting_id']}", headers=auth).json()
+    assert after["segments"][0]["text"] == "更正后的文字"
+
+    # And: unknown meeting / segment are 404
+    assert client.get("/meetings/999/audio", headers=auth).status_code == 404
+    assert (
+        client.patch(
+            f"/meetings/{meeting['meeting_id']}/segments/999",
+            headers=auth,
+            json={"text": "x"},
+        ).status_code
+        == 404
+    )
+
+    # And: blank text is 400, unauthenticated audio is 401, Range is 206
+    assert (
+        client.patch(
+            f"/meetings/{meeting['meeting_id']}/segments/{segment_id}",
+            headers=auth,
+            json={"text": "   "},
+        ).status_code
+        == 400
+    )
+    assert client.get(f"/meetings/{meeting['meeting_id']}/audio").status_code == 401
+    ranged = client.get(
+        f"/meetings/{meeting['meeting_id']}/audio",
+        headers={**auth, "Range": "bytes=0-3"},
+    )
+    assert ranged.status_code == 206
+    assert "content-range" in {key.lower() for key in ranged.headers}
+
+    # And: a segment belonging to another meeting is 404 under this meeting
+    other = upload_meeting(client, title="Other")
+    other_segment = client.get(f"/meetings/{other['meeting_id']}", headers=auth).json()[
+        "segments"
+    ][0]["id"]
+    assert (
+        client.patch(
+            f"/meetings/{meeting['meeting_id']}/segments/{other_segment}",
+            headers=auth,
+            json={"text": "x"},
+        ).status_code
+        == 404
+    )
 
 
 def test_summary_error_paths_and_chinese_search(

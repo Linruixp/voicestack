@@ -268,6 +268,13 @@ class MeetingOps:
             for row in rows
         ]
 
+    def update_segment_text(self, segment_id: int, text: str) -> bool:
+        with self._conn:
+            cursor = self._conn.execute(
+                "UPDATE segments SET text = ? WHERE id = ?", (text, segment_id)
+            )
+        return cursor.rowcount > 0
+
     def add_meeting_speaker(self, link: ClusterLink) -> None:
         """Attach (or re-attach) a cluster of a meeting to a speaker."""
         self._require_meeting(link.meeting_id)
